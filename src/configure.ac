@@ -1,0 +1,42 @@
+#                                               -*- Autoconf -*- 
+# Process this file with autoconf to produce a configure script. 
+# Order is largely irrevellant, although it must start with AC_INIT and end with AC_OUTPUT 
+# See http://autotoolset.sourceforge.net/tutorial.html 
+# and http://www.openismus.com/documents/linux/automake/automake.shtml 
+
+AC_INIT(SCEADAN, 1.2.1, bugs@afflib.org)
+AC_CONFIG_FILES([Makefile])
+AC_CONFIG_HEADER([config.h])
+AM_INIT_AUTOMAKE
+AM_MAINTAINER_MODE
+
+AC_CONFIG_MACRO_DIR([m4])
+
+# Programs we will be using
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+m4_include([sceadan_configure.m4])
+m4_include([gcc_all_warnings.m4])
+
+################################################################
+# Specify our other headers
+
+AC_HEADER_STDC
+AC_CHECK_HEADERS([string.h])
+
+
+############## drop optimization flags if requested ################
+############## or if GCC_NOOPT variable is set      ################
+AC_ARG_WITH(noopt, AC_HELP_STRING([--with-noopt], [Drop -O C flags]))
+if test x"${GCC_NOOPT}" != "x" ; then
+   with_noopt="yes";
+fi
+
+if test "${with_noopt}" = "yes" ; then
+  CFLAGS=`echo "$CFLAGS" | sed s/-O[[0-9]]//`             # note the double quoting! 
+  CXXFLAGS=`echo "$CXXFLAGS" | sed s/-O[[0-9]]//`
+fi
+
+AC_OUTPUT
