@@ -1,34 +1,34 @@
 # Object files
-*.o
-*.lo
-*.slo
-*.ko
-*.obj
-*.elf
+**/*.o
+**/*.lo
+**/*.slo
+**/*.ko
+**/*.obj
+**/*.elf
 
 # Libraries
-*.lib
-*.a
+**/*.lib
+**/*.a
 
 # Shared objects
-*.dll
-*.so
-*.so.*
-*.dylib
+**/*.dll
+**/*.so
+**/*.so.*
+**/*.dylib
 
 # Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+**/*.lai
+**/*.la
+**/*.a
+**/*.lib
 
 # Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+**/*.exe
+**/*.out
+**/*.app
+**/*.i*86
+**/*.x86_64
+**/*.hex
 
 # Temp files
-*.*~
+**/*.*~
