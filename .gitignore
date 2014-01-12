@@ -32,3 +32,6 @@
 
 # Temp files
 **/*.*~
+
+# Log files
+**/*.log

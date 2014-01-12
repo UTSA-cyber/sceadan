@@ -33,7 +33,7 @@ Build Instructions
 Usage
 -----
 
-	sceadan <target> 0
+	sceadan_app <target> 0
 
 
 If `target`  is a directory, Sceadan will operate on each file within the directory individual, otherwise Sceadan will classify the single file referenced.
