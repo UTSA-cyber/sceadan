@@ -1,5 +1,0 @@
-include Makefile.defs
-
-bin_PROGRAMS = sceadan_train sceadan_test
-sceadan_test_SOURCES = sceadan_test.c $(SCEADAN)
-sceadan_train_SOURCES = sceadan_train.c $(SCEADAN)
