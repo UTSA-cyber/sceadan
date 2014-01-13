@@ -49,3 +49,5 @@ config.h.in
 *gz
 config.log
 **/.deps
+sceadan_app
+stamp-h*
