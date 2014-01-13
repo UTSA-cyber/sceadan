@@ -17,8 +17,10 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
 
+m4_include([m4/slg_searchdirs.m4])
+m4_include([m4/gcc_all_warnings.m4])
 m4_include([sceadan_configure.m4])
-m4_include([gcc_all_warnings.m4])
+
 
 ################################################################
 # Specify our other headers

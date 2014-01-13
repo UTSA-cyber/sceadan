@@ -1,3 +1,12 @@
+# autoconf generated things:
+Makefile
+Makefile.in
+aclocal.m4
+config.status
+configure
+configure.ac
+autom4te.cache
+
 # Object files
 **/*.o
 **/*.lo
