@@ -43,4 +43,9 @@ autom4te.cache
 **/*.*~
 
 # Log files
-**/*.log
+**/*.log.deps
+config.h
+config.h.in
+*gz
+config.log
+**/.deps
