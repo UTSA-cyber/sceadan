@@ -1,0 +1,43 @@
+package intergroup.util;
+
+import java.net.InetAddress;
+import java.util.StringTokenizer;
+
+/**
+ *  Representation of a process group identifier.
+ *
+ *  @author Karlo Berket
+ *  @version $Revision: 1.1.1.1 $
+ */
+public class IP6PGID
+    extends PGID
+{
+
+    // Constants
+    public static final int LEN = IP6ProcID.LEN;
+
+    public static final IP6PGID FAKE = new IP6PGID(0);
+
+    // Variables
+
+    // Constructors
+
+    private IP6PGID(int i)
+    {
+	group_ = IP6ProcID.FAKE;
+    }
+
+    public IP6PGID(String addr)
+	throws java.io.IOException
+    {
+	group_ = new IP6ProcID(addr, true);
+	name_ = addr;
+    }
+
+    public IP6PGID(byte[] x, int off)
+    {
+	group_ = new IP6ProcID(x, off);
+    }	
+
+
+}
