@@ -25,7 +25,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <string.h>
 
 #include "file_type.h"
 #include "sceadan_processblk.h"
@@ -111,9 +111,8 @@ process_dir (
 			break;
 		case FTW_F: /* normal file */
 			// if it works, it'll work fast (by an insignificant amount)
-			if (__builtin_expect (
-				process_file (fpath, block_factor, do_output, outs, file_type) != 0,
-				true
+			if ( (
+				process_file (fpath, block_factor, do_output, outs, file_type) != 0
 			)) {
 				// TODO logging ?
 			}
@@ -159,9 +158,10 @@ process_blocks0 (
 	size_t offset = 0;
 
 	while (true) {
-		ucv_t ucv = UCV_LIT;
-		bcv_t bcv = BCV_LIT;
-		mfv_t mfv = MFV_BLOCK_LIT;
+          ucv_t ucv; memset(&ucv,0,sizeof(ucv)); 
+          bcv_t bcv; memset(&bcv,0,sizeof(bcv));
+          mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;
+          //mfv_t mfv = MFV_CONTAINER_LIT;
 
 		mfv.id_container = path;
 		mfv.id_block = offset;
@@ -172,9 +172,8 @@ process_blocks0 (
 		bz.bzfree  = NULL;
 		bz.opaque  = NULL;
 
-		if (__builtin_expect (BZ2_bzCompressInit (&bz, BZ2_BLOCK_SZ, 0, 
-			                                       BZ2_WORK_FACTOR) != BZ_OK,
-				                false)) {
+		if ((BZ2_bzCompressInit (&bz, BZ2_BLOCK_SZ, 0, 
+			                                       BZ2_WORK_FACTOR) != BZ_OK)) {
 			// TODO
 			return 1;
 		}
@@ -225,7 +224,7 @@ process_blocks0 (
 						return 1;
 					}
 
-					if (__builtin_expect (BZ2_bzCompressEnd (&bz) != BZ_OK, false)) {
+					if ( (BZ2_bzCompressEnd (&bz) != BZ_OK)) {
 						// TODO
 						return 1;
 					}
@@ -254,12 +253,12 @@ process_blocks0 (
 
 					switch (file_type) {
 						case UNCLASSIFIED:
-							if (__builtin_expect (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0, false)) {
+							if ((predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
 								return 6;
 							}
 						//	break;
 						default:
-							if (__builtin_expect (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0, false)) {
+							if ( (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
 								return 5;
 							}
 						}
@@ -273,7 +272,7 @@ process_blocks0 (
 				bz.avail_in  = rd;
 				bz.next_out  = waste;
 				bz.avail_out = WASTE_SZ;
-				if (__builtin_expect (BZ2_bzCompress (&bz, BZ_RUN) != BZ_RUN_OK, false)) {
+				if ( (BZ2_bzCompress (&bz, BZ_RUN) != BZ_RUN_OK)) {
 					// TODO
 					return 1;
 				}
@@ -335,7 +334,7 @@ process_blocks0 (
 			return 1;
 		}
 
-		if (__builtin_expect (BZ2_bzCompressEnd (&bz) != BZ_OK, false)) {
+		if ( (BZ2_bzCompressEnd (&bz) != BZ_OK)) {
 			// TODO
 			return 1;
 		}
@@ -363,12 +362,12 @@ process_blocks0 (
 
 		switch (file_type) {
 		case UNCLASSIFIED:
-			if (__builtin_expect (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0, false)) {
+			if ((predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
 				return 6;
 			}
 		//	break;
 		default:
-			if (__builtin_expect (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0, false)) {
+			if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
 				return 5;
 			}
 		}
@@ -387,22 +386,22 @@ process_blocks (
 	      file_type_e file_type
 ) {
 	const fd_t fd = open (path, O_RDONLY|O_BINARY);
-	if (__builtin_expect (fd == -1, false)) {
+	if ( (fd == -1)) {
 		//VERBOSE_OUTPUT(
 			fprintf (stderr, "fail: open2 ()\n");
 		//)
 		return 2;
 	}
 
-	if (__builtin_expect (
-		process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0,
-		false
+	if ((
+		process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0
+		
 	)) {
 		close (fd);
 		return 3;
 	}
 
-	if (__builtin_expect (close (fd) == -1, false)) {
+	if ((close (fd) == -1)) {
 		//VERBOSE_OUTPUT(
 			fprintf (stderr, "fail: close ()\n");
 		//)
@@ -436,9 +435,8 @@ process_container0 (
 	bz.bzfree  = NULL;
 	bz.opaque  = NULL;
 
-	if (__builtin_expect (BZ2_bzCompressInit (&bz, BZ2_BLOCK_SZ, 0, 
-		                                       BZ2_WORK_FACTOR) != BZ_OK,
-			                false)) {
+	if ( (BZ2_bzCompressInit (&bz, BZ2_BLOCK_SZ, 0, 
+		                                       BZ2_WORK_FACTOR) != BZ_OK)) {
 		// TODO
 		return 1;
 	}
@@ -484,7 +482,7 @@ process_container0 (
 						return 1;
 					}
 
-					if (__builtin_expect (BZ2_bzCompressEnd (&bz) != BZ_OK, false)) {
+					if ((BZ2_bzCompressEnd (&bz) != BZ_OK)) {
 						// TODO
 						return 1;
 					}
@@ -520,7 +518,7 @@ process_container0 (
 			bz.avail_in  = rd;
 			bz.next_out  = waste;
 			bz.avail_out = WASTE_SZ;
-			if (__builtin_expect (BZ2_bzCompress (&bz, BZ_RUN) != BZ_RUN_OK, false)) {
+			if ((BZ2_bzCompress (&bz, BZ_RUN) != BZ_RUN_OK)) {
 				// TODO
 				return 1;
 			}
@@ -571,9 +569,10 @@ process_container (
 	      FILE     *const outs[3],
 	      file_type_e file_type
 ) {
-	ucv_t ucv = UCV_LIT;
-	bcv_t bcv = BCV_LIT;
-	mfv_t mfv = MFV_CONTAINER_LIT;
+  ucv_t ucv; memset(&ucv,0,sizeof(ucv)); //= UCV_LIT;
+  bcv_t bcv; memset(&bcv,0,sizeof(bcv));// = BCV_LIT;
+  mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
+  //mfv_t mfv = MFV_CONTAINER_LIT;
 
 	mfv.id_container = path;
 
@@ -581,23 +580,22 @@ process_container (
 	unigram_t last_val;
 
 	const fd_t fd = open (path, O_RDONLY|O_BINARY);
-	if (__builtin_expect (fd == -1, false)) {
+	if ((fd == -1)) {
 		//VERBOSE_OUTPUT(
 			fprintf (stderr, "fail: open2 ()\n");
 		//)
 		return 2;
 	}
 
-	if (__builtin_expect (
+	if ((
 		process_container0 (fd, ucv, bcv, &mfv,
-		                    &last_cnt, &last_val) != 0,
-		false
+		                    &last_cnt, &last_val) != 0
 	)) {
 		close (fd);
 		return 3;
 	}
 
-	if (__builtin_expect (close (fd) == -1, false)) {
+	if ((close (fd) == -1)) {
 			fprintf (stderr, "fail: close ()\n");
 		return 4;
 	}
@@ -606,12 +604,12 @@ process_container (
 
 	switch (file_type) {
 		case UNCLASSIFIED:
-			if (__builtin_expect (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0, false)) {
+			if ( (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
 				return 6;
 			}
 			//break;
 		default:
-			if (__builtin_expect (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0, false)) {
+			if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
 				return 5;
 			}
 	}
@@ -789,13 +787,13 @@ vectors_finalize (
 	              / sigma3;
 
 	// kurtosis
-	if (__builtin_expect (isinf (expectancy_x4), false)) {
+	if ( (isinf (expectancy_x4))) {
 		fprintf (stderr, "isinf (expectancy_x4)\n");
-		abort ();
+		assert (0);
 	}
-	if (__builtin_expect (isinf (variance2), false)) {
+	if ( (isinf (variance2))) {
 		fprintf (stderr, "isinf (variance2)\n");
-		abort ();
+		assert (0);
 	}
 
 	mfv->kurtosis = (expectancy_x4 / variance2);
@@ -838,14 +836,14 @@ output_competition (
 		break;
 	default:
 		// TODO
-		abort ();
+		assert (0);
 	}
 
 	switch (file_type) {
 	case UNCLASSIFIED:
 		// TODO
 		fflush(stdout);
-		abort ();
+		assert (0);
 
 	/* file type description: Plain text
 	   file extensions: .text, .txt */
@@ -967,7 +965,7 @@ output_competition (
 		break;
 	default:
 		// TODO
-		abort ();
+		assert (0);
 	}
 
 	puts ("");
