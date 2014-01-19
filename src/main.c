@@ -248,7 +248,7 @@ parse_uint (
 	      void  *const res
 ) {
 	const unsigned long tmp = strtoul (arg, endptr, 0);
-	if (__builtin_expect (tmp > UINT_MAX, false))
+	if ( (tmp > UINT_MAX))
 		abort ();
 
 	*((unsigned int *) res) = tmp;
@@ -288,8 +288,6 @@ parse_input_arg (
 		abort ();
 	} // end switch input type
 
-	//if (__builtin_expect (arg[1] != '\0', false))
-	//	abort ();
 	*endptr = arg + 1;
 }
 
@@ -322,9 +320,6 @@ parse_output_arg (
 		abort ();
 	} // end switch output type
 
-	//if (__builtin_expect (arg[1] != '\0', false)) {
-	//	abort ();
-	//}
 	*endptr = arg + 1;
 }
 
@@ -345,7 +340,7 @@ parse_arg (
 	const parse_f        parse
 ) {
 	// don't parse empty arg
-	if (__builtin_expect (*arg == '\0', false)) {
+	if ((*arg == '\0')) {
 		printf ("empty parameter\n");
 		puts ("try sceadan -h h");
 		abort ();
@@ -355,7 +350,7 @@ parse_arg (
 	parse (arg, &endptr, res);
 
 	// parse entire arg
-	if (__builtin_expect (*endptr != '\0', false)) {
+	if ( (*endptr != '\0')) {
 		printf ("could not complete parsing parameter\n");
 		puts ("try sceadan -h h");
 		abort ();
@@ -423,7 +418,7 @@ parse_args (
 		switch (c) {
 		case 0:
 			/* If this option set a flag, do nothing else now. */
-			if (__builtin_expect (long_options[option_index].flag != 0, false))
+			if ( (long_options[option_index].flag != 0))
 				break;
 			break;
 
@@ -464,7 +459,7 @@ parse_args (
 	   and ‘--brief’ as they are encountered,
 	   we report the final status resulting from them. */
 	#ifdef VERBOSE
-	if (__builtin_expect (verbose_flag, false))
+	if ( (verbose_flag))
 		puts ("RUNNING IN PERMANENT VERBOSE MODE");
 	else {
 		puts ("This version was compile in 'permanent verbose' mode,");
@@ -478,7 +473,7 @@ parse_args (
 	#endif
 
 
-	if (__builtin_expect (optind != argc - 2, false)) {
+	if ( (optind != argc - 2)) {
 		printf ("incorrect number of positional parameters\n");
 		puts ("try sceadan -h h");
 		abort ();
@@ -513,7 +508,7 @@ main (
 
 	{
 		const size_t strsz = strftime (buf + 9, TIME_BUF_SZ - 9,".%Y%m%d.%H%M%S",timeinfo);
-		if (__builtin_expect (strsz == 0 || strsz == TIME_BUF_SZ - 9, false)) {
+		if ( (strsz == 0 || strsz == TIME_BUF_SZ - 9)) {
 			// TODO
 			return 1;
 		}
@@ -529,7 +524,7 @@ main (
 		memcpy (buf + 9 - (sizeof ("./ucv") - 1), "./ucv", sizeof ("./ucv") - 1);
 
 		outs[0] = fopen (buf + 9 - (sizeof ("./ucv") - 1), "w");
-		if (__builtin_expect (outs[0] == NULL, false)) {
+		if ( (outs[0] == NULL)) {
 			// TODO
 			fprintf (stderr, "fopen fail\n");
 			return 1;
@@ -538,7 +533,7 @@ main (
 		memcpy (buf + 9 - (sizeof ("./bcv") - 1), "./bcv", sizeof ("./bcv") - 1);
 
 		outs[1] = fopen (buf + 9 - (sizeof ("./bcv") - 1), "w");
-		if (__builtin_expect (outs[1] == NULL, false)) {
+		if ((outs[1] == NULL)) {
 			// TODO
 			return 1;
 		}
@@ -546,15 +541,14 @@ main (
 		memcpy (buf + 9 - (sizeof ("./main") - 1), "./main", sizeof ("./main") - 1);
 
 		outs[2] = fopen (buf + 9 - (sizeof ("./main") - 1), "w");
-		if (__builtin_expect (outs[2] == NULL, false)) {
+		if ((outs[2] == NULL)) {
 			// TODO
 			return 1;
 		}
 	}
 
-	const int ret = __builtin_expect (
-		do_input (input_target, block_factor, do_output, outs, file_type) == 0,
-		true
+	const int ret =  (
+		do_input (input_target, block_factor, do_output, outs, file_type) == 0
 	)
 	?       EXIT_SUCCESS
 	:       EXIT_FAILURE;
@@ -563,17 +557,17 @@ main (
 	switch (file_type) {
 	case UNCLASSIFIED: break;
 	default:
-		if (__builtin_expect (fclose (outs[2]) != 0, false)) {
+		if ((fclose (outs[2]) != 0)) {
 			// TODO
 			return 1;
 		}
 
-		if (__builtin_expect (fclose (outs[1]) != 0, false)) {
+		if ( (fclose (outs[1]) != 0)) {
 			// TODO
 			return 1;
 		}
 
-		if (__builtin_expect (fclose (outs[0]) != 0, false)) {
+		if ((fclose (outs[0]) != 0)) {
 			// TODO
 			return 1;
 		}
