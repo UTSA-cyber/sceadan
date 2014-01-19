@@ -524,7 +524,7 @@ main (
 		memcpy (buf + 9 - (sizeof ("./ucv") - 1), "./ucv", sizeof ("./ucv") - 1);
 
 		outs[0] = fopen (buf + 9 - (sizeof ("./ucv") - 1), "w");
-		if ( (outs[0] == NULL)) {
+		if ( outs[0] == NULL) {
 			// TODO
 			fprintf (stderr, "fopen fail\n");
 			return 1;
@@ -533,7 +533,7 @@ main (
 		memcpy (buf + 9 - (sizeof ("./bcv") - 1), "./bcv", sizeof ("./bcv") - 1);
 
 		outs[1] = fopen (buf + 9 - (sizeof ("./bcv") - 1), "w");
-		if ((outs[1] == NULL)) {
+		if (outs[1] == NULL) {
 			// TODO
 			return 1;
 		}
@@ -541,7 +541,7 @@ main (
 		memcpy (buf + 9 - (sizeof ("./main") - 1), "./main", sizeof ("./main") - 1);
 
 		outs[2] = fopen (buf + 9 - (sizeof ("./main") - 1), "w");
-		if ((outs[2] == NULL)) {
+		if (outs[2] == NULL) {
 			// TODO
 			return 1;
 		}
