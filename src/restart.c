@@ -12,29 +12,6 @@
 
 /* Private functions */
 
-#if 0
-static int gettimeout(struct timeval end,
-                               struct timeval *timeoutp) {
-   gettimeofday(timeoutp, NULL);
-   timeoutp->tv_sec = end.tv_sec - timeoutp->tv_sec;
-   timeoutp->tv_usec = end.tv_usec - timeoutp->tv_usec;
-   if (timeoutp->tv_usec >= MILLION) {
-      timeoutp->tv_sec++;
-      timeoutp->tv_usec -= MILLION;
-   }
-   if (timeoutp->tv_usec < 0) {
-      timeoutp->tv_sec--;
-      timeoutp->tv_usec += MILLION;
-   }
-   if ((timeoutp->tv_sec < 0) ||
-       ((timeoutp->tv_sec == 0) && (timeoutp->tv_usec == 0))) {
-      errno = ETIME;
-      return -1;
-   }
-   return 0;
-}
-#endif
-
 /* Restart versions of traditional functions */
 
 int r_close(int fildes) {
@@ -42,14 +19,6 @@ int r_close(int fildes) {
    while (retval = close(fildes), retval == -1 && errno == EINTR) ;
    return retval;
 }
-#if 0
-
-int r_dup2(int fildes, int fildes2) {
-   int retval;
-   while (retval = dup2(fildes, fildes2), retval == -1 && errno == EINTR) ;
-   return retval;
-}
-#endif
 
 
 int r_open2(const char *path, int oflag) {
@@ -57,14 +26,6 @@ int r_open2(const char *path, int oflag) {
    while (retval = open(path, oflag), retval == -1 && errno == EINTR) ;
    return retval;
 }
-#if 0
-
-int r_open3(const char *path, int oflag, mode_t mode) {
-   int retval;
-   while (retval = open(path, oflag, mode), retval == -1 && errno == EINTR) ;
-   return retval;
-}
-#endif
 
 ssize_t r_read(int fd, void *buf, size_t size) {
    ssize_t retval;
@@ -72,67 +33,7 @@ ssize_t r_read(int fd, void *buf, size_t size) {
    return retval;
 }
 
-#if 0
-pid_t r_wait(int *stat_loc) {
-   pid_t retval;
-   while (((retval = wait(stat_loc)) == -1) && (errno == EINTR)) ;
-   return retval;
-}
-
-pid_t r_waitpid(pid_t pid, int *stat_loc, int options) {
-   pid_t retval;
-   while (((retval = waitpid(pid, stat_loc, options)) == -1) &&
-           (errno == EINTR)) ;
-   return retval;
-}
-
-ssize_t r_write(int fd, void *buf, size_t size) {
-   char *bufp;
-   size_t bytestowrite;
-   ssize_t byteswritten;
-   size_t totalbytes;
-
-   for (bufp = (char *)buf, bytestowrite = size, totalbytes = 0;
-        bytestowrite > 0;
-        bufp += byteswritten, bytestowrite -= byteswritten) {
-      byteswritten = write(fd, bufp, bytestowrite);
-      if ((byteswritten) == -1 && (errno != EINTR))
-         return -1;
-      if (byteswritten == -1)
-         byteswritten = 0;
-      totalbytes += byteswritten;
-   }
-   return totalbytes;
-}
-#endif
-
 /* Utility functions */
-
-#if 0
-struct timeval add2currenttime(double seconds) {
-   struct timeval newtime;
-
-   gettimeofday(&newtime, NULL);
-   newtime.tv_sec += (int)seconds;
-   newtime.tv_usec += (int)((seconds - (int)seconds)*D_MILLION + 0.5);
-   if (newtime.tv_usec >= MILLION) {
-      newtime.tv_sec++;
-      newtime.tv_usec -= MILLION;
-   }
-   return newtime;
-}
-#endif
-
-#if 0
-int copyfile(int fromfd, int tofd) {
-   int bytesread;
-   int totalbytes = 0;
-
-   while ((bytesread = readwrite(fromfd, tofd)) > 0)
-      totalbytes += bytesread;
-   return totalbytes;
-}
-#endif
 
 ssize_t readblock(int fd, void *buf, size_t size) {
    char *bufp;
@@ -183,70 +84,3 @@ int readline(int fd, char *buf, int nbytes) {
    return -1;
 }
 
-#if 0
-ssize_t readtimed(int fd, void *buf, size_t nbyte, double seconds) {
-   struct timeval timedone;
-
-   timedone = add2currenttime(seconds);
-   if (waitfdtimed(fd, timedone) == -1)
-      return (ssize_t)(-1);
-   return r_read(fd, buf, nbyte);
-}
-#endif
-
-#if 0
-int readwrite(int fromfd, int tofd) {
-   char buf[BLKSIZE];
-   int bytesread;
-
-   if ((bytesread = r_read(fromfd, buf, BLKSIZE)) < 0)
-      return -1;
-   if (bytesread == 0)
-      return 0;
-   if (r_write(tofd, buf, bytesread) < 0)
-      return -1;
-   return bytesread;
-}
-#endif
-
-#if 0
-int readwriteblock(int fromfd, int tofd, char *buf, int size) {
-   int bytesread;
-
-   bytesread = readblock(fromfd, buf, size);
-   if (bytesread != size)         /* can only be 0 or -1 */
-      return bytesread;
-   return r_write(tofd, buf, size);
-}
-#endif
-
-#if 0
-int waitfdtimed(int fd, struct timeval end) {
-   fd_set readset;
-   int retval;
-   struct timeval timeout;
- 
-   if ((fd < 0) || (fd >= FD_SETSIZE)) {
-      errno = EINVAL;
-      return -1;
-   }  
-   FD_ZERO(&readset);
-   FD_SET(fd, &readset);
-   if (gettimeout(end, &timeout) == -1)
-      return -1;
-   while (((retval = select(fd+1, &readset, NULL, NULL, &timeout)) == -1)
-           && (errno == EINTR)) {
-      if (gettimeout(end, &timeout) == -1)
-         return -1;
-      FD_ZERO(&readset);
-      FD_SET(fd, &readset);
-   }
-   if (retval == 0) {
-      errno = ETIME;
-      return -1;
-   }
-   if (retval == -1)
-      return -1;
-   return 0;
-}
-#endif

@@ -38,9 +38,6 @@
 //-fsection-anchors
 
 
-
-
-
 /* STANDARD INCLUDES */                                  /* STANDARD INCLUDES */
 #include <stdbool.h>
 #include <getopt.h>
@@ -588,4 +585,3 @@ main (
 
 /* END FUNCTIONS FOR HANDLING COMMAND LINE PARAMETERS */
 
-//#include "easteregg.h"
