@@ -84,19 +84,17 @@ max (
 
 
 
+static int ftw_callback_block_factor = 0;
+static output_f ftw_callback_do_output = 0;
+static FILE * ftw_callback_outs[3];
+static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
 
-/* FUNCTIONS FOR PROCESSING DIRECTORIES */
-// TODO full path vs relevant path may matter
 int
-process_dir (
-	const          char path[],
-	const unsigned int  block_factor,
-	const output_f      do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-) {
-
-	// dys-functional programming
+ftw_callback (
+              const char                fpath[],
+              const struct stat *const sb,
+              const int                 typeflag
+              );
 	int
 	ftw_callback (
 		const char                fpath[],
@@ -111,16 +109,32 @@ process_dir (
 			break;
 		case FTW_F: /* normal file */
 			// if it works, it'll work fast (by an insignificant amount)
-			if ( (
-				process_file (fpath, block_factor, do_output, outs, file_type) != 0
-			)) {
-				// TODO logging ?
-			}
+                  process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_outs, ftw_callback_file_type);
 		}
 		return 0;
 	}
 
+/* FUNCTIONS FOR PROCESSING DIRECTORIES */
+// TODO full path vs relevant path may matter
+int
+process_dir (
+	const          char path[],
+	const unsigned int  block_factor,
+	const output_f      do_output,
+	      FILE *const outs[3],
+	      file_type_e file_type
+) {
+  int i;
+	// dys-functional programming
+
 	// http://voyager.deanza.edu/~perry/ftw.html
+  ftw_callback_block_factor = block_factor;
+  ftw_callback_do_output    = do_output;
+  for(i=0;i<3;i++){
+    ftw_callback_outs[i] = outs[i];
+  }
+
+  ftw_callback_file_type    = file_type;
 	return ftw (path, &ftw_callback, FTW_NOPENFD);
 }
 /* END FUNCTIONS FOR PROCESSING DIRECTORIES */
