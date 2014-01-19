@@ -98,6 +98,8 @@ do_predict (
 	return 0;
 }
 
+
+static struct model* model_ = 0;
 int
 predict_liblin (
 	const ucv_t        ucv,
@@ -133,18 +135,17 @@ predict_liblin (
 	// Load model
 	struct feature_node *x;
 	const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
-	struct model* model_;
 
-	model_=load_model(MODEL);
-	if((model_)==0)
-	{
-		fprintf(stderr,"can't open model file %s\n","");
-		return 1;
-	}
-
+        if(model_==0){
+          model_=load_model(MODEL);
+          if(model_==0){
+            fprintf(stderr,"can't open model file %s\n","");
+            return 1;
+          }
+        }
 	x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
 	do_predict(ucv, bcv, mfv, file_type,x, model_);
-	free_and_destroy_model(&model_);
+	//free_and_destroy_model(&model_);
 	free(x);
 	return 0;
 }
