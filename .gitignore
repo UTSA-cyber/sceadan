@@ -51,3 +51,4 @@ config.log
 **/.deps
 sceadan_app
 stamp-h*
+test-driver

@@ -191,11 +191,11 @@ process_blocks0 (
 		size_t tot;
 		for (tot = 0; tot != block_factor; ) {
 			char   buf[BUFSIZ];
-			size_t rd = r_read (fd, buf, min (block_factor - tot, BUFSIZ));
+			size_t rd = read (fd, buf, min (block_factor - tot, BUFSIZ));
 			switch (rd) {
 			case -1:
 				//VERBOSE_OUTPUT(
-					fprintf (stderr, "fail: r_read ()\n");
+					fprintf (stderr, "fail: read ()\n");
 				//);
 				return 1;
 			case  0:
@@ -380,10 +380,10 @@ process_blocks (
 	      FILE     *const outs[3],
 	      file_type_e file_type
 ) {
-	const fd_t fd = r_open2 (path, O_RDONLY);
+	const fd_t fd = open (path, O_RDONLY);
 	if (__builtin_expect (fd == -1, false)) {
 		//VERBOSE_OUTPUT(
-			fprintf (stderr, "fail: r_open2 ()\n");
+			fprintf (stderr, "fail: open2 ()\n");
 		//)
 		return 2;
 	}
@@ -392,13 +392,13 @@ process_blocks (
 		process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0,
 		false
 	)) {
-		r_close (fd);
+		close (fd);
 		return 3;
 	}
 
-	if (__builtin_expect (r_close (fd) == -1, false)) {
+	if (__builtin_expect (close (fd) == -1, false)) {
 		//VERBOSE_OUTPUT(
-			fprintf (stderr, "fail: r_close ()\n");
+			fprintf (stderr, "fail: close ()\n");
 		//)
 		return 4;
 	}
@@ -451,11 +451,11 @@ process_container0 (
 
 	while (true) {
 		char    buf[BUFSIZ];
-		const ssize_t rd = r_read (fd, buf, sizeof (buf));
+		const ssize_t rd = read (fd, buf, sizeof (buf));
 		switch (rd) {
 		case -1:
 			//VERBOSE_OUTPUT(
-				fprintf (stderr, "fail: r_read ()\n");
+				fprintf (stderr, "fail: read ()\n");
 			//);
 			return 1;
 		case  0:
@@ -574,10 +574,10 @@ process_container (
 	sum_t     last_cnt = 0;
 	unigram_t last_val;
 
-	const fd_t fd = r_open2 (path, O_RDONLY);
+	const fd_t fd = open (path, O_RDONLY);
 	if (__builtin_expect (fd == -1, false)) {
 		//VERBOSE_OUTPUT(
-			fprintf (stderr, "fail: r_open2 ()\n");
+			fprintf (stderr, "fail: open2 ()\n");
 		//)
 		return 2;
 	}
@@ -587,12 +587,12 @@ process_container (
 		                    &last_cnt, &last_val) != 0,
 		false
 	)) {
-		r_close (fd);
+		close (fd);
 		return 3;
 	}
 
-	if (__builtin_expect (r_close (fd) == -1, false)) {
-			fprintf (stderr, "fail: r_close ()\n");
+	if (__builtin_expect (close (fd) == -1, false)) {
+			fprintf (stderr, "fail: close ()\n");
 		return 4;
 	}
 
