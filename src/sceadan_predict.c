@@ -65,7 +65,6 @@ do_predict (
 
 	{
 		int i = 0;
-		int predict_label;
 
 		int k, j;
 		for (k = 0 ; k < n_unigram; k++, i++) {
@@ -89,9 +88,9 @@ do_predict (
 		x[i].index = -1;
 
 		{
-			predict_label = predict(model_,x);
+                  int predict_label = predict(model_,x);
 			//fprintf(stdout,"%d\n",predict_label);
-			*file_type = predict_label;
+                  *file_type = (file_type_e) predict_label;
 			// TODO should not be 36 (random)
 		}
 	}
