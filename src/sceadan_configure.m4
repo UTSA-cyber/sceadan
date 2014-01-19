@@ -18,7 +18,7 @@ AC_CHECK_FUNCS([BZ2_bzCompressInit BZ2_bzCompress BZ2_bzCompressEnd],,AC_MSG_ERR
 
 
 # -llinear
-AC_CHECK_HEADERS([linear.h],,AC_MSG_ERROR([missing linear.h]))
+AC_CHECK_HEADERS([linear.h liblinear/linear.h])
 AC_CHECK_LIB([linear],[load_model],,AC_MSG_ERROR([missing -llinear]))
 AC_CHECK_FUNCS([load_model check_probability_model predict_probability predict],,AC_MSG_ERROR([missing linear functions]))
 

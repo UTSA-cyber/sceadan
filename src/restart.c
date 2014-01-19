@@ -12,6 +12,7 @@
 
 /* Private functions */
 
+#if 0
 static int gettimeout(struct timeval end,
                                struct timeval *timeoutp) {
    gettimeofday(timeoutp, NULL);
@@ -32,6 +33,7 @@ static int gettimeout(struct timeval end,
    }
    return 0;
 }
+#endif
 
 /* Restart versions of traditional functions */
 
@@ -40,12 +42,14 @@ int r_close(int fildes) {
    while (retval = close(fildes), retval == -1 && errno == EINTR) ;
    return retval;
 }
+#if 0
 
 int r_dup2(int fildes, int fildes2) {
    int retval;
    while (retval = dup2(fildes, fildes2), retval == -1 && errno == EINTR) ;
    return retval;
 }
+#endif
 
 
 int r_open2(const char *path, int oflag) {
@@ -53,12 +57,14 @@ int r_open2(const char *path, int oflag) {
    while (retval = open(path, oflag), retval == -1 && errno == EINTR) ;
    return retval;
 }
+#if 0
 
 int r_open3(const char *path, int oflag, mode_t mode) {
    int retval;
    while (retval = open(path, oflag, mode), retval == -1 && errno == EINTR) ;
    return retval;
 }
+#endif
 
 ssize_t r_read(int fd, void *buf, size_t size) {
    ssize_t retval;
@@ -66,6 +72,7 @@ ssize_t r_read(int fd, void *buf, size_t size) {
    return retval;
 }
 
+#if 0
 pid_t r_wait(int *stat_loc) {
    pid_t retval;
    while (((retval = wait(stat_loc)) == -1) && (errno == EINTR)) ;
@@ -85,7 +92,7 @@ ssize_t r_write(int fd, void *buf, size_t size) {
    ssize_t byteswritten;
    size_t totalbytes;
 
-   for (bufp = buf, bytestowrite = size, totalbytes = 0;
+   for (bufp = (char *)buf, bytestowrite = size, totalbytes = 0;
         bytestowrite > 0;
         bufp += byteswritten, bytestowrite -= byteswritten) {
       byteswritten = write(fd, bufp, bytestowrite);
@@ -97,9 +104,11 @@ ssize_t r_write(int fd, void *buf, size_t size) {
    }
    return totalbytes;
 }
+#endif
 
 /* Utility functions */
 
+#if 0
 struct timeval add2currenttime(double seconds) {
    struct timeval newtime;
 
@@ -112,7 +121,9 @@ struct timeval add2currenttime(double seconds) {
    }
    return newtime;
 }
+#endif
 
+#if 0
 int copyfile(int fromfd, int tofd) {
    int bytesread;
    int totalbytes = 0;
@@ -121,6 +132,7 @@ int copyfile(int fromfd, int tofd) {
       totalbytes += bytesread;
    return totalbytes;
 }
+#endif
 
 ssize_t readblock(int fd, void *buf, size_t size) {
    char *bufp;
@@ -128,7 +140,7 @@ ssize_t readblock(int fd, void *buf, size_t size) {
    size_t bytestoread;
    size_t totalbytes;
  
-   for (bufp = buf, bytestoread = size, totalbytes = 0;
+   for (bufp = (char *)buf, bytestoread = size, totalbytes = 0;
         bytestoread > 0;
         bufp += bytesread, bytestoread -= bytesread) {
       bytesread = read(fd, bufp, bytestoread);
@@ -171,6 +183,7 @@ int readline(int fd, char *buf, int nbytes) {
    return -1;
 }
 
+#if 0
 ssize_t readtimed(int fd, void *buf, size_t nbyte, double seconds) {
    struct timeval timedone;
 
@@ -179,7 +192,9 @@ ssize_t readtimed(int fd, void *buf, size_t nbyte, double seconds) {
       return (ssize_t)(-1);
    return r_read(fd, buf, nbyte);
 }
+#endif
 
+#if 0
 int readwrite(int fromfd, int tofd) {
    char buf[BLKSIZE];
    int bytesread;
@@ -192,7 +207,9 @@ int readwrite(int fromfd, int tofd) {
       return -1;
    return bytesread;
 }
+#endif
 
+#if 0
 int readwriteblock(int fromfd, int tofd, char *buf, int size) {
    int bytesread;
 
@@ -201,7 +218,9 @@ int readwriteblock(int fromfd, int tofd, char *buf, int size) {
       return bytesread;
    return r_write(tofd, buf, size);
 }
+#endif
 
+#if 0
 int waitfdtimed(int fd, struct timeval end) {
    fd_set readset;
    int retval;
@@ -230,3 +249,4 @@ int waitfdtimed(int fd, struct timeval end) {
       return -1;
    return 0;
 }
+#endif

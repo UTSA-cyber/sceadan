@@ -17,6 +17,8 @@
 
 //===============================================================================================================//
 
+#include "config.h"
+
 #include <errno.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -24,7 +26,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef HAVE_LINEAR_H
 #include <linear.h>
+#endif
+#ifdef HAVE_LIBLINEAR_LINEAR_H
+#include <liblinear/linear.h>
+#endif
 
 #include "sceadan_predict.h"
 #include "sceadan_processblk.h"
