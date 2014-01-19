@@ -21,10 +21,13 @@
 #include <ftw.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 
 #include "file_type.h"
-#include "restart.h"
 #include "sceadan_processblk.h"
 #include "sceadan_predict.h"
 
@@ -38,6 +41,9 @@
 #endif
 
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 
 
@@ -380,7 +386,7 @@ process_blocks (
 	      FILE     *const outs[3],
 	      file_type_e file_type
 ) {
-	const fd_t fd = open (path, O_RDONLY);
+	const fd_t fd = open (path, O_RDONLY|O_BINARY);
 	if (__builtin_expect (fd == -1, false)) {
 		//VERBOSE_OUTPUT(
 			fprintf (stderr, "fail: open2 ()\n");
@@ -574,7 +580,7 @@ process_container (
 	sum_t     last_cnt = 0;
 	unigram_t last_val;
 
-	const fd_t fd = open (path, O_RDONLY);
+	const fd_t fd = open (path, O_RDONLY|O_BINARY);
 	if (__builtin_expect (fd == -1, false)) {
 		//VERBOSE_OUTPUT(
 			fprintf (stderr, "fail: open2 ()\n");
@@ -736,7 +742,7 @@ vectors_finalize (
 
 			// item entropy
 			const double pv = ucv[i].avg;
-			if (pv != 0) // TODO floating point mumbo jumbo
+			if (fabs(pv)>0) // TODO floating point mumbo jumbo
 				mfv->item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
 		}
 
@@ -747,7 +753,7 @@ vectors_finalize (
 
 			// bigram entropy
 			const double pv = bcv[i][j].avg;
-			if (pv != 0) // TODO
+			if (fabs(pv)>0) // TODO
 				mfv->bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
 		}
 //#ifdef RESEARCH

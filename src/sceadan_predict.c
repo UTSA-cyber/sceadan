@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 #ifdef HAVE_LINEAR_H
 #include <linear.h>
@@ -53,8 +54,8 @@ do_predict (
 	      struct model*      model_
 ) {
 
-	int nr_class=get_nr_class(model_);
-	double *prob_estimates=NULL;
+  //int nr_class=get_nr_class(model_);
+	//double *prob_estimates=NULL;
 	int /*j,*/ n;
 	int nr_feature=get_nr_feature(model_);
 	if(model_->bias>=0)
@@ -64,7 +65,7 @@ do_predict (
 
 	{
 		int i = 0;
-		int target_label, predict_label;
+		int predict_label;
 
 		int k, j;
 		for (k = 0 ; k < n_unigram; k++, i++) {

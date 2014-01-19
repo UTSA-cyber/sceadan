@@ -48,7 +48,6 @@
 #include <time.h>
 /* END STANDARD INCLUDES */                          /* END STANDARD INCLUDES */
 
-#include "restart.h"
 #include "file_type.h"
 #include "ngram.h"
 #include "sceadan_processblk.h"
