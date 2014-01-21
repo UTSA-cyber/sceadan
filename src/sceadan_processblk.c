@@ -2,11 +2,19 @@
 
 //Copyright (c) 2012-2013 The University of Texas at San Antonio
 
-//This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+//This program is free software; you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation; either version 2 of the License, or
+//(at your option) any later version.
 
-//This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Public License for more details.
+//This program is distributed in the hope that it will be useful, but
+//WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+//Public License for more details.
 
-//You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+//You should have received a copy of the GNU General Public License
+//along with this program; if not, write to the Free Software
+//Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 //Written by: 
 //Dr. Nicole Beebe and Lishu Liu, Department of Information Systems and Cyber Security (nicole.beebe@utsa.edu)
@@ -616,18 +624,14 @@ process_container (
 
 	vectors_finalize (ucv, bcv, &mfv);
 
-	switch (file_type) {
-		case UNCLASSIFIED:
-			if ( (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
-				return 6;
-			}
-			//break;
-		default:
-			if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
-				return 5;
-			}
-	}
-
+        if(file_type==UNCLASSIFIED){
+            if ( (predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
+                return 6;
+            }
+        }
+        if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
+            return 5;
+        }
 	return 0;
 }
 /* END FUNCTIONS FOR PROCESSING CONTAINERS */
@@ -842,7 +846,6 @@ output_competition (
 	      FILE  *const unused[3],
 	      file_type_e file_type
 ) {
-
 	switch (mfv->id_type) {
 	case ID_CONTAINER: //break;
 	case ID_BLOCK:
@@ -861,54 +864,37 @@ output_competition (
 
 	/* file type description: Plain text
 	   file extensions: .text, .txt */
-	case TEXT:
-		printf ("txt");
-		break;
+	case TEXT:printf ("txt"); break;
 
 	/* file type description: Delimited
 	   file extensions: .csv */
-	case CSV:
-		printf ("csv");
-		break;
+	case CSV:printf ("csv"); break;
 
 	/* file type description: Log files
 	   file extensions: .log */
-	case LOG:
-		printf ("log");
-		break;
+	case LOG:printf ("log"); break;
 
 	/* file type description: HTML
 	   file extensions: .html */
-	case HTML:
-		printf ("html");
-		break;
+	case HTML:printf ("html"); break;
 
 	/* file type description: xml
 	   file extensions: .xml */
-	case XML:
-		printf ("xml");
-		break;
+	case XML:printf ("xml"); break;
 
 	case ASPX: printf ("aspx"); break;
 
 	/* file type description: css
 	   file extensions: .css */
-	case CSS:
-		printf ("css");
-		break;
+	case CSS:printf ("css"); break;
 
 	/* file type description: JavaScript code
 	   file extensions: .js */
-	case JS:
-		printf ("js");
-		break;
+	case JS:printf ("js");     break;
 
 	/* file type description: JSON records
 	   file extensions: .json */
-	case JSON:
-		printf ("json");
-		break;
-
+	case JSON: printf ("json"); break;
 	case B64: printf ("b64"); break;
 	case A85: printf ("a85"); break;
 	case B16: printf ("b16"); break;
