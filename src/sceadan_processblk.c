@@ -47,8 +47,6 @@
 #define O_BINARY 0
 #endif
 
-
-
 /* number of open file descriptors for ftw
    TODO tune this parameter */
 #define FTW_NOPENFD (7)
@@ -59,10 +57,86 @@
 
 #define ZL_LEVEL (9)
 #define WASTE_SZ (4096)
-#define W "-10"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+struct sceadan_type_t {
+    int code;
+    const char *name;
+};
+
+struct sceadan_type_t sceadan_types[] = {
+    {A85,"a85"},
+    {AES,"aes"},
+    {ASPX,"aspx"},
+    {AVI,"avi"},
+    {B16,"b16"},
+    {B64,"b64"},
+    {BCV_CONST,"bcv_const"},
+    {BMP,"bmp"},
+    {BZ2,"bz2"},
+    {CSS,"css"},
+    {CSV,"csv"},
+    {DLL,"dll"},
+    {DOC,"doc"},
+    {DOCX,"docx"},
+    {ELF,"elf"},
+    {EXE,"exe"},
+    {EXT3,"ext3"},
+    {FAT,"fat"},
+    {FLV,"flv"},
+    {GIF,"gif"},
+    {GZ,"gz"},
+    {HTML,"html"},
+    {JAR,"jar"},
+    {JAVA,"java"},
+    {JB2,"jb2"},
+    {JPG,"jpg"},
+    {JS,"js"},
+    {JSON,"json"},
+    {LOG,"log"},
+    {M4A,"m4a"},
+    {MOV,"mov"},
+    {MP3,"mp3"},
+    {MP4,"mp4"},
+    {NTFS,"ntfs"},
+    {PDF,"pdf"},
+    {PNG,"png"},
+    {PPS,"pps"},
+    {PPT,"ppt"},
+    {PPTX,"pptx"},
+    {PS,"ps"},
+    {PST,"pst"},
+    {RAND,"rand"},
+    {RPM,"rpm"},
+    {RTF,"rtf"},
+    {SWF,"swf"},
+    {TBIRD,"tbird"},
+    {TCV_CONST,"tcv_const"},
+    {TEXT,"txt"},
+    {TIF,"tif"},
+    {UCV_CONST,"ucv_const"},
+    {URL,"url"},
+    {WAV,"wav"},
+    {WMA,"wma"},
+    {WMV,"wmv"},
+    {XLS,"xls"},
+    {XLSX,"xlsx"},
+    {XML,"xml"},
+    {ZIP,"zip"},
+    {0,""}
+};
+
+
+const char *sceadan_name_for_type(int i);
+const char *sceadan_name_for_type(int code)
+{
+    for(int i=0;sceadan_types[i].code!=0;i++){
+        if(sceadan_types[i].code==code) return sceadan_types[i].name;
+    }
+    fprintf(stderr,"sceadan_name_for_type: unknown type value %d\n",code);
+    assert(0);
+}
 
 
 
@@ -562,136 +636,14 @@ vectors_finalize (
 /* END FUNCTIONS FOR VECTORS */
 
 // prints finalized vectors
-int
-output_competition (
-                    const ucv_t        ucv,
-                    const bcv_t        bcv,
-                    const mfv_t *const mfv,
-                    FILE  *const unused[3],
-                    file_type_e file_type
-                    ) {
-    switch (mfv->id_type) {
-    case ID_CONTAINER: //break;
-    case ID_BLOCK:
-        printf ("%"W"zu ", mfv->id_block);
-        break;
-    default:
-        // TODO
-        assert (0);
-    }
-
-    switch (file_type) {
-    case UNCLASSIFIED:
-        // TODO
-        fflush(stdout);
-        assert (0);
-
-	/* file type description: Plain text
-	   file extensions: .text, .txt */
-    case TEXT:printf ("txt"); break;
-
-	/* file type description: Delimited
-	   file extensions: .csv */
-    case CSV:printf ("csv"); break;
-
-	/* file type description: Log files
-	   file extensions: .log */
-    case LOG:printf ("log"); break;
-
-	/* file type description: HTML
-	   file extensions: .html */
-    case HTML:printf ("html"); break;
-
-	/* file type description: xml
-	   file extensions: .xml */
-    case XML:printf ("xml"); break;
-
-    case ASPX: printf ("aspx"); break;
-
-	/* file type description: css
-	   file extensions: .css */
-    case CSS:printf ("css"); break;
-
-	/* file type description: JavaScript code
-	   file extensions: .js */
-    case JS:printf ("js");     break;
-
-	/* file type description: JSON records
-	   file extensions: .json */
-    case JSON: printf ("json"); break;
-    case B64: printf ("b64"); break;
-    case A85: printf ("a85"); break;
-    case B16: printf ("b16"); break;
-    case URL: printf ("url"); break;
-    case PS:  printf ("ps");  break;
-    case RTF: printf ("rtf"); break;
-    case TBIRD: printf ("tbird"); break;
-    case PST: printf ("pst"); break;
-    case PNG: printf ("png"); break;
-    case GIF: printf ("gif"); break;
-    case TIF: printf ("tif"); break;
-    case JB2: printf ("jb2"); break;
-    case GZ:  printf ("gz");  break;
-    case ZIP: printf ("zip"); break;
-    case JAR: printf ("jar"); break;
-    case RPM: printf ("rpm"); break;
-    case BZ2: printf ("bz2"); break;
-    case PDF: printf ("pdf"); break;
-    case DOCX: printf ("docx"); break;
-    case XLSX: printf ("xlsx"); break;
-    case PPTX: printf ("pptx"); break;
-    case MP3: printf ("mp3"); break;
-    case M4A: printf ("m4a"); break;
-    case MP4: printf ("mp4"); break;
-    case AVI: printf ("avi"); break;
-    case WMV: printf ("wmv"); break;
-    case FLV: printf ("flv"); break;
-    case SWF: printf ("swf"); break;
-    case WAV: printf ("wav"); break;
-    case WMA: printf ("wma"); break;
-    case MOV: printf ("mov"); break;
-    case DOC: printf ("doc"); break;
-    case XLS: printf ("xls"); break;
-    case PPT: printf ("ppt"); break;
-    case FAT: printf ("fat"); break;
-    case NTFS: printf ("ntfs"); break;
-    case EXT3: printf ("ext3"); break;
-    case EXE: printf ("exe"); break;
-    case DLL: printf ("dll"); break;
-    case ELF: printf ("elf"); break;
-    case BMP: printf ("bmp"); break;
-    case AES: printf ("aes"); break;
-    case RAND: printf ("rand"); break;
-    case PPS: printf ("pps"); break;
-    case UCV_CONST: printf ("ucv_const"); break;
-    case BCV_CONST: printf ("bcv_const"); break;
-    case TCV_CONST: printf ("tcv_const"); break;
-
-	/* file type description: JPG
-	   file extensions: .jpg, .jpeg */
-    case JPG:
-        printf ("jpg");
-        break;
-
-	/* file type description: Java Source Code
-	   file extensions: .java */
-    case JAVA:
-        printf ("java");
-        break;
-    }
-
-    switch (mfv->id_type) {
-    case ID_CONTAINER:
-    case ID_BLOCK:
-        printf (" # %s", mfv->id_container);
-        break;
-    default:
-        // TODO
-        assert (0);
-    }
-
-    puts ("");
-
+int output_competition (const ucv_t        ucv,
+                        const bcv_t        bcv,
+                        const mfv_t *const mfv,
+                        FILE  *const unused[3],
+                        file_type_e file_type
+                        )
+{
+    assert((mfv->id_type==ID_CONTAINER) ||  (mfv->id_type==ID_BLOCK));
+    printf ("%-10zu %s # %s\n", mfv->id_block,sceadan_name_for_type(file_type),mfv->id_container);
     return 0;
-	
 }
