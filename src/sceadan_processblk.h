@@ -238,6 +238,16 @@ output_competition  (
 	      FILE  *const unused[3],
 	      file_type_e file_type
 ) ;
+
+struct sceadan_type_t {
+    int code;
+    const char *name;
+};
+
+extern struct sceadan_type_t sceadan_types[];
+const char *sceadan_name_for_type(int i);
+
+
 #endif
 
 

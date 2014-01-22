@@ -1,29 +1,32 @@
-//===============================================================================================================//
+/*****************************************************************
+ *
+ *
+ *Copyright (c) 2012-2013 The University of Texas at San Antonio
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
 
-//Copyright (c) 2012-2013 The University of Texas at San Antonio
-
-//This program is free software; you can redistribute it and/or modify
-//it under the terms of the GNU General Public License as published by
-//the Free Software Foundation; either version 2 of the License, or
-//(at your option) any later version.
-
-//This program is distributed in the hope that it will be useful, but
-//WITHOUT ANY WARRANTY; without even the implied warranty of
-//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-//Public License for more details.
-
-//You should have received a copy of the GNU General Public License
-//along with this program; if not, write to the Free Software
-//Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
-//Written by: 
-//Dr. Nicole Beebe and Lishu Liu, Department of Information Systems and Cyber Security (nicole.beebe@utsa.edu)
-//Laurence Maddox, Department of Computer Science
-//University of Texas at San Antonio
-//One UTSA Circle 
-//San Antonio, Texas 78209
-
-//===============================================================================================================//
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ * Written by: 
+ * Dr. Nicole Beebe and Lishu Liu, Department of Information Systems and Cyber Security (nicole.beebe@utsa.edu)
+ * Laurence Maddox, Department of Computer Science
+ * University of Texas at San Antonio
+ * One UTSA Circle 
+ * San Antonio, Texas 78209
+ * 
+ * Updated by:
+ * Simson L. Garfinkel, Naval Postgraduate School
+ ****************************************************************/
 
 #include <assert.h>
 #include <ftw.h>
@@ -60,12 +63,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-struct sceadan_type_t {
-    int code;
-    const char *name;
-};
-
 struct sceadan_type_t sceadan_types[] = {
+    {0,"unclassified"},
     {A85,"a85"},
     {AES,"aes"},
     {ASPX,"aspx"},
@@ -128,14 +127,12 @@ struct sceadan_type_t sceadan_types[] = {
 };
 
 
-const char *sceadan_name_for_type(int i);
 const char *sceadan_name_for_type(int code)
 {
-    for(int i=0;sceadan_types[i].code!=0;i++){
+    for(int i=0;sceadan_types[i].name!=0;i++){
         if(sceadan_types[i].code==code) return sceadan_types[i].name;
     }
-    fprintf(stderr,"sceadan_name_for_type: unknown type value %d\n",code);
-    assert(0);
+    return(0);
 }
 
 
@@ -623,11 +620,8 @@ vectors_finalize (
     mfv->stddev_byte_val.avg /= n_unigram;
     mfv->kurtosis            /= n_unigram;
     mfv->contiguity.avg      /= n_unigram;
-
     mfv->bzip2_len.avg        = 1;
-
     mfv->lzw_len.avg          = 1;
-
     mfv->lo_ascii_freq.avg  = (double) mfv->lo_ascii_freq.tot  / mfv->uni_sz;
     mfv->med_ascii_freq.avg = (double) mfv->med_ascii_freq.tot / mfv->uni_sz;
     mfv->hi_ascii_freq.avg  = (double) mfv->hi_ascii_freq.tot  / mfv->uni_sz;

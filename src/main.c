@@ -155,6 +155,13 @@ print_usage (const char subsection) {
         puts ("[-t <0-42>]");
         puts ("type label");
         puts ("default: 0");
+        {
+            for(int i=0;;i++){
+                const char *name = sceadan_name_for_type(i);
+                if(name) printf("\t%2d : %-18s - %s mode\n",i,name,i==0 ? "predict" : "train  ");
+                else break;
+            }
+        }
         puts ("\t 0 : unclassified      - predict mode");
         puts ("\t 1 : text              - train   mode");
         puts ("\t 2 : csv               - train   mode");
