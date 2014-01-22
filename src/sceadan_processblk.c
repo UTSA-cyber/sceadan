@@ -233,7 +233,7 @@ process_file (
 static int
 process_blocks0 (
                  const char          path[],
-                 const fd_t          fd,
+                 const int          fd,
                  const unsigned int  block_factor,
                  const output_f      do_output,
                  FILE         *const outs[3],
@@ -320,7 +320,7 @@ process_blocks (
                 FILE     *const outs[3],
                 file_type_e file_type
                 ) {
-    const fd_t fd = open (path, O_RDONLY|O_BINARY);
+    const int fd = open (path, O_RDONLY|O_BINARY);
     if ( (fd == -1)) {
         //VERBOSE_OUTPUT(
         fprintf (stderr, "fail: open2 ()\n");
@@ -353,7 +353,7 @@ process_blocks (
 /* implements a multi-level break */
 static int
 process_container0 (
-                    const fd_t             fd,
+                    const int         fd,
                     ucv_t            ucv,
                     bcv_t            bcv,
                     mfv_t     *const mfv,
@@ -402,7 +402,7 @@ process_container (
     sum_t     last_cnt = 0;
     unigram_t last_val;
 
-    const fd_t fd = open (path, O_RDONLY|O_BINARY);
+    const int fd = open (path, O_RDONLY|O_BINARY);
     if ((fd == -1)) {
         //VERBOSE_OUTPUT(
         fprintf (stderr, "fail: open2 ()\n");

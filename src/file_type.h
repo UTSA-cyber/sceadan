@@ -1,8 +1,3 @@
-#ifndef FD_H
-#define FD_H
-/* type for file descriptors */
-typedef int fd_t;
-#endif
 #ifndef FILE_TYPE_H
 #define FILE_TYPE_H
 /* data types - NOTE extensions should not be case-sensitive */
