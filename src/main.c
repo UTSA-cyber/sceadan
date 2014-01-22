@@ -52,7 +52,6 @@
 /* END STANDARD INCLUDES */                          /* END STANDARD INCLUDES */
 
 #include "sceadan.h"
-#include "sceadan_processblk.h"
 
 /* MACRO CONSTANTS */                                      /* MACRO CONSTANTS */
 #define TIME_BUF_SZ (80)
@@ -229,11 +228,10 @@ print_usage (const char subsection) {
 }
 
 static void
-parse_uint (
-    const char         arg[],
-    char **const endptr,
-    void  *const res
-    ) {
+parse_uint (    const char         arg[],
+                char **const endptr,
+                void  *const res )
+{
     const unsigned long tmp = strtoul (arg, endptr, 0);
     if ( (tmp > UINT_MAX))
         exit(-1);
@@ -455,7 +453,8 @@ parse_args (const int argc,
 }
 
 int
-main (const int argc, char *const argv[]) {
+main (const int argc, char *const argv[])
+{
     const char         *input_target;
     unsigned int  block_factor;
     output_f      do_output;
@@ -466,19 +465,14 @@ main (const int argc, char *const argv[]) {
 		&input_target, &block_factor,
 		&do_output, &do_input, &file_type );
     
-    time_t rawtime;
-    struct tm * timeinfo;
+    time_t rawtime= time(0);
     char buf [TIME_BUF_SZ];
 
-    time ( &rawtime );
-    timeinfo = localtime ( &rawtime );
+    struct tm *timeinfo = localtime ( &rawtime );
 
-    {
-        const size_t strsz = strftime (buf + 9, TIME_BUF_SZ - 9,".%Y%m%d.%H%M%S",timeinfo);
-        if ( (strsz == 0 || strsz == TIME_BUF_SZ - 9)) {
-            // TODO
-            return 1;
-        }
+    const size_t strsz = strftime (buf + 9, TIME_BUF_SZ - 9,".%Y%m%d.%H%M%S",timeinfo);
+    if ( (strsz == 0 || strsz == TIME_BUF_SZ - 9)) {
+        return 1;
     }
 
     FILE *outs[3];
@@ -514,34 +508,11 @@ main (const int argc, char *const argv[]) {
         }
     }
 
-    const int ret =  (
-        do_input (input_target, block_factor, do_output, outs, file_type) == 0
-	)
-	?       EXIT_SUCCESS
-	:       EXIT_FAILURE;
-
-	
-    switch (file_type) {
-    case UNCLASSIFIED: break;
-    default:
-        if ((fclose (outs[2]) != 0)) {
-            // TODO
-            return 1;
-        }
-
-        if ( (fclose (outs[1]) != 0)) {
-            // TODO
-            return 1;
-        }
-
-        if ((fclose (outs[0]) != 0)) {
-            // TODO
-            return 1;
-        }
-    }
-
+    const int ret =  do_input (input_target, block_factor, do_output, outs, file_type);
+    fclose(outs[0]);
+    fclose(outs[1]);
+    fclose(outs[2]);
     return ret;
 }
 
-/* END FUNCTIONS FOR HANDLING COMMAND LINE PARAMETERS */
 
