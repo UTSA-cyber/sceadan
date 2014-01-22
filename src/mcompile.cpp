@@ -78,6 +78,7 @@ int main(int argc,char **argv)
     puts("#ifdef HAVE_LIBLINEAR_LINEAR_H");
     puts("#include <liblinear/linear.h>");
     puts("#endif");
+    puts("#include \"sceadan.h\"");
 
     if(model->param.nr_weight){
         printf("static int weight_label[]={");
@@ -114,7 +115,7 @@ int main(int argc,char **argv)
     }
     printf("};\n");
         
-    printf("struct model m = {\n");
+    printf("static struct model m = {\n");
     printf("\t.param = {\n");
     printf("\t\t.solver_type=%d,\n",model->param.solver_type);
     printf("\t\t.eps = %g,\n",model->param.eps);
@@ -129,6 +130,8 @@ int main(int argc,char **argv)
     printf("\t.w=w,\n");
     printf("\t.label=label,\n");
     printf("\t.bias=%g};\n",model->bias);
+
+    printf("struct model *get_model_precompiled(){return &m;}\n");
     return(0);
 }
 

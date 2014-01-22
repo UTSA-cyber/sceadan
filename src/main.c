@@ -51,24 +51,12 @@
 #include <time.h>
 /* END STANDARD INCLUDES */                          /* END STANDARD INCLUDES */
 
-#include "file_type.h"
-#include "ngram.h"
+#include "sceadan.h"
 #include "sceadan_processblk.h"
 
 /* MACRO CONSTANTS */                                      /* MACRO CONSTANTS */
 #define TIME_BUF_SZ (80)
 
-#ifdef VERBOSE
-#define VERBOSE_OUTPUT(S) ({                    \
-            S                                   \
-                })
-#else
-#define VERBOSE_OUTPUT(S) {                             \
-	if (__builtin_expect (verbose_flag, false)) {   \
-            S                                           \
-                }                                       \
-    }
-#endif
 /* END MACRO CONSTANTS */                              /* END MACRO CONSTANTS */
 
 
@@ -454,20 +442,6 @@ parse_args (const int argc,
     /* Instead of reporting ‘--verbose’
        and ‘--brief’ as they are encountered,
        we report the final status resulting from them. */
-#ifdef VERBOSE
-    if ( (verbose_flag))
-        puts ("RUNNING IN PERMANENT VERBOSE MODE");
-    else {
-        puts ("This version was compile in 'permanent verbose' mode,");
-        puts ("so the verbose flag is repetitively redundant...");
-        puts ("and a little verbose !!!");
-    }
-#else
-    VERBOSE_OUTPUT(
-        puts ("verbose flag is set");
-	)
-#endif
-
 
 	if ( (optind != argc - 2)) {
             printf ("incorrect number of positional parameters\n");

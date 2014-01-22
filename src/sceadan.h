@@ -1,16 +1,36 @@
-#ifndef SCEADAN_PROCESSBLK_H
-#define SCEADAN_PROCESSBLK_H
+#ifndef SCEADAN_H
+#define SCEADAN_H
 
+#include <stdint.h>
 
-/* STANDARD INCLUDES */                                  /* STANDARD INCLUDES */
-#include <stdio.h>
-#include <stdlib.h>
-/* END STANDARD INCLUDES */                          /* END STANDARD INCLUDES */
+#ifdef HAVE_LINEAR_H
+#include <linear.h>
+#endif
+#ifdef HAVE_LIBLINEAR_LINEAR_H
+#include <liblinear/linear.h>
+#endif
 
-/* DTFE INCLUDES */                                          /* DTFE INCLUDES */
 #include "file_type.h"
-#include "ngram.h"
-/* END DTFE INCLUDES */                                  /* END DTFE INCLUDES */
+
+
+/* definitions. Some will be moved out of this file */
+
+#define nbit_unigram (8)                // bits in a unigram
+#define nbit_bigram  (16)               /* number of bits in a bigram */
+#define n_unigram ((uint32_t) 1 << nbit_unigram) /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
+#define n_bigram  ((uint32_t) 1 << nbit_bigram)  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
+
+/* unigram - an octet of bits
+   TODO check whether endian-ness can be an issue */
+typedef uint8_t  unigram_t;
+
+/* bigram  - two consecutive unigrams
+   TODO check whether endian-ness can be an issue */
+typedef uint16_t bigram_t;
+
+struct model *get_sceadan_model_precompiled();
+
+
 
 /* low  ascii range is
    0x00 <= char < 0x20 */
@@ -171,7 +191,13 @@ typedef int (*output_f) (
 	      file_type_e  file_type
 );
 /* END TYPEDEFS FOR I/O */
+struct sceadan_type_t {
+    int code;
+    const char *name;
+};
 
+extern struct sceadan_type_t sceadan_types[];
+const char *sceadan_name_for_type(int i);
 
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
@@ -194,43 +220,6 @@ process_file (
 ) ;
 
 int
-process_blocks (
-	const char         path[],
-	const unsigned int block_factor,
-	const output_f     do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-) ;
-
-int
-process_container (
-	const char     path[],
-	const output_f do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-) ;
-
-void
-vectors_update (
-	const unigram_t        buf[],
-	const size_t           sz,
-	      ucv_t            ucv,
-	      bcv_t            bcv,
-	      mfv_t     *const mfv,
-
-	      sum_t     *const last_cnt,
-	      unigram_t *const last_val
-) ;
-
-void
-vectors_finalize (
-	      ucv_t        ucv,
-	      bcv_t        bcv,
-	      mfv_t *const mfv
-) ;
-/* END OF FUNCTIONS */
-
-int
 output_competition  (
 	const ucv_t        ucv,
 	const bcv_t        bcv,
@@ -239,15 +228,5 @@ output_competition  (
 	      file_type_e file_type
 ) ;
 
-struct sceadan_type_t {
-    int code;
-    const char *name;
-};
-
-extern struct sceadan_type_t sceadan_types[];
-const char *sceadan_name_for_type(int i);
-
 
 #endif
-
-

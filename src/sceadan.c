@@ -17,17 +17,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Written by: 
- * Dr. Nicole Beebe and Lishu Liu, Department of Information Systems and Cyber Security (nicole.beebe@utsa.edu)
- * Laurence Maddox, Department of Computer Science
+ * Copyright Holder:
  * University of Texas at San Antonio
  * One UTSA Circle 
  * San Antonio, Texas 78209
- * 
- * Updated by:
- * Simson L. Garfinkel, Naval Postgraduate School
- ****************************************************************/
+ */
 
+/*
+ *
+ * Development History:
+ *
+ * 2014 - Significant refactoring and updating by:
+ * Simson L. Garfinkel, Naval Postgraduate School
+ *
+ * 2013 - Created by:
+ * Dr. Nicole Beebe and Lishu Liu, Department of Information Systems and Cyber Security (nicole.beebe@utsa.edu)
+ * Laurence Maddox, Department of Computer Science
+ * 
+ */
+
+#include "config.h"
 #include <assert.h>
 #include <ftw.h>
 #include <stdbool.h>
@@ -37,10 +46,51 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "file_type.h"
-#include "sceadan_processblk.h"
-#include "sceadan_predict.h"
+#include "sceadan.h"
+
+
+
+int
+process_blocks (
+	const char         path[],
+	const unsigned int block_factor,
+	const output_f     do_output,
+	      FILE *const outs[3],
+	      file_type_e file_type
+) ;
+
+int
+process_container (
+	const char     path[],
+	const output_f do_output,
+	      FILE *const outs[3],
+	      file_type_e file_type
+) ;
+
+void
+vectors_update (
+	const unigram_t        buf[],
+	const size_t           sz,
+	      ucv_t            ucv,
+	      bcv_t            bcv,
+	      mfv_t     *const mfv,
+
+	      sum_t     *const last_cnt,
+	      unigram_t *const last_val
+) ;
+
+void
+vectors_finalize (
+	      ucv_t        ucv,
+	      bcv_t        bcv,
+	      mfv_t *const mfv
+) ;
+/* END OF FUNCTIONS */
+
+
+
 
 /* LINKED INCLUDES */                                      /* LINKED INCLUDES */
 #include <math.h>
@@ -49,6 +99,13 @@
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
+
+#define MODEL ("model.ucv-bcv.20130509.c256.s2.e005")
+
+#define RANDOMNESS_THRESHOLD (.995)
+#define UCV_CONST_THRESHOLD  (.5)
+#define BCV_CONST_THRESHOLD  (.5)
+
 
 /* number of open file descriptors for ftw
    TODO tune this parameter */
@@ -229,6 +286,101 @@ process_file (
 /* END FUNCTIONS FOR PROCESSING FILES */
 
 
+static int
+do_predict ( const ucv_t               ucv,
+             const bcv_t               bcv,
+             const mfv_t        *const mfv,
+             file_type_e  *const file_type,
+             struct feature_node *x, //const x,
+             struct model*      model_ )
+{
+    int n;
+    int nr_feature=get_nr_feature(model_);
+    if(model_->bias>=0){
+        n=nr_feature+1;
+    } else {
+        n=nr_feature;
+    }
+    
+    int i = 0;
+    
+    for (int k = 0 ; k < n_unigram; k++, i++) {
+        x[i].index = i + 1;
+        x[i].value = ucv[k].avg;
+    }
+    
+    for (int k = 0; k < n_unigram; k++)
+        for (int j = 0; j < n_unigram; j++) {
+            x[i].index = i + 1;
+            x[i].value = bcv[k][j].avg;
+            i++;
+        }
+    
+    if(model_->bias>=0)    {
+        x[i].index = n;
+        x[i].value = model_->bias;
+        i++;
+    }
+    x[i].index = -1;
+    
+    int predict_label = predict(model_,x);
+    *file_type = (file_type_e) predict_label;
+    return 0;
+}
+
+
+static struct model* model_ = 0;
+static int
+predict_liblin (
+	const ucv_t        ucv,
+	const bcv_t        bcv,
+	      mfv_t *const mfv,
+	      file_type_e *const file_type
+) {
+	// TODO floating point comparison
+	if (mfv->item_entropy > RANDOMNESS_THRESHOLD) {
+		*file_type = RAND;
+		return 0;
+	}
+
+	int i, j;
+	for (i = 0; i < n_unigram; i++) {
+		// TODO floating point comparison
+		if (ucv[i].avg > UCV_CONST_THRESHOLD) {
+				*file_type = UCV_CONST;
+				mfv->const_chr[0] = i;
+				return 0;
+		}
+		for (j = 0; j < n_unigram; j++)
+			// TODO floating point comparison
+			if (bcv[i][j].avg > BCV_CONST_THRESHOLD) {
+				*file_type = BCV_CONST;
+				mfv->const_chr[0] = i;
+				mfv->const_chr[1] = j;
+				return 0;
+			}
+	}
+	
+	
+	// Load model
+	const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
+
+        if(model_==0){
+          model_=load_model(MODEL);
+          if(model_==0){
+            fprintf(stderr,"can't open model file %s\n","");
+            return 1;
+          }
+        }
+	struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
+	do_predict(ucv, bcv, mfv, file_type,x, model_);
+	//free_and_destroy_model(&model_);
+	free(x);
+	return 0;
+}
+
+
+
 /* FUNCTIONS FOR PROCESSING BLOCKS */
 static int
 process_blocks0 (
@@ -260,9 +412,7 @@ process_blocks0 (
             size_t rd = read (fd, buf, min (block_factor - tot, BUFSIZ));
             switch (rd) {
             case -1:
-                //VERBOSE_OUTPUT(
                 fprintf (stderr, "fail: read ()\n");
-                //);
                 return 1;
             case  0:
                 if (tot != 0) {
@@ -322,9 +472,7 @@ process_blocks (
                 ) {
     const int fd = open (path, O_RDONLY|O_BINARY);
     if ( (fd == -1)) {
-        //VERBOSE_OUTPUT(
         fprintf (stderr, "fail: open2 ()\n");
-        //)
         return 2;
     }
 
@@ -337,9 +485,7 @@ process_blocks (
     }
 
     if ((close (fd) == -1)) {
-        //VERBOSE_OUTPUT(
         fprintf (stderr, "fail: close ()\n");
-        //)
         return 4;
     }
 
@@ -368,9 +514,7 @@ process_container0 (
         const ssize_t rd = read (fd, buf, sizeof (buf));
         switch (rd) {
         case -1:
-            //VERBOSE_OUTPUT(
             fprintf (stderr, "fail: read ()\n");
-            //);
             return 1;
         case  0:
 
@@ -404,9 +548,7 @@ process_container (
 
     const int fd = open (path, O_RDONLY|O_BINARY);
     if ((fd == -1)) {
-        //VERBOSE_OUTPUT(
         fprintf (stderr, "fail: open2 ()\n");
-        //)
         return 2;
     }
 
