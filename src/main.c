@@ -49,12 +49,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-/* END STANDARD INCLUDES */                          /* END STANDARD INCLUDES */
 
 #include "sceadan.h"
 
-/* MACRO CONSTANTS */                                      /* MACRO CONSTANTS */
-#define TIME_BUF_SZ (80)
 
 /* END MACRO CONSTANTS */                              /* END MACRO CONSTANTS */
 
@@ -452,6 +449,7 @@ parse_args (const int argc,
     parse_arg (argv[optind], block_factor, parse_uint);
 }
 
+#define TIME_BUF_SZ (80)
 int
 main (const int argc, char *const argv[])
 {
@@ -476,12 +474,7 @@ main (const int argc, char *const argv[])
     }
 
     FILE *outs[3];
-    switch (file_type) {
-    case UNCLASSIFIED:
-        // TODO
-        break;
-
-    default:
+    if(file_type!=UNCLASSIFIED){
         memcpy (buf + 9 - (sizeof ("./ucv") - 1), "./ucv", sizeof ("./ucv") - 1);
 
         outs[0] = fopen (buf + 9 - (sizeof ("./ucv") - 1), "w");
@@ -508,11 +501,6 @@ main (const int argc, char *const argv[])
         }
     }
 
-    const int ret =  do_input (input_target, block_factor, do_output, outs, file_type);
-    fclose(outs[0]);
-    fclose(outs[1]);
-    fclose(outs[2]);
-    return ret;
+    do_input (input_target, block_factor, do_output, outs, file_type);
+    exit(0);
 }
-
-

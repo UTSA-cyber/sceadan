@@ -445,18 +445,14 @@ process_blocks0 (
 
         vectors_finalize (ucv, bcv, &mfv/*, max_cnt*/);
 
-        switch (file_type) {
-        case UNCLASSIFIED:
-            if ((predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)) {
+        if(file_type==UNCLASSIFIED){
+            if((predict_liblin (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type) != 0)){
                 return 6;
             }
-            //	break;
-        default:
-            if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
-                return 5;
-            }
         }
-
+        if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
+            return 5;
+        }
         offset += tot;
     } // end while
     __builtin_unreachable ();
@@ -539,7 +535,6 @@ process_container (
     ucv_t ucv; memset(&ucv,0,sizeof(ucv)); //= UCV_LIT;
     bcv_t bcv; memset(&bcv,0,sizeof(bcv));// = BCV_LIT;
     mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
-    //mfv_t mfv = MFV_CONTAINER_LIT;
 
     mfv.id_container = path;
 
@@ -547,20 +542,17 @@ process_container (
     unigram_t last_val;
 
     const int fd = open (path, O_RDONLY|O_BINARY);
-    if ((fd == -1)) {
-        fprintf (stderr, "fail: open2 ()\n");
+    if (fd<0){
+        perror("open");
         return 2;
     }
 
-    if ((
-         process_container0 (fd, ucv, bcv, &mfv,
-                             &last_cnt, &last_val) != 0
-         )) {
+    if (process_container0 (fd, ucv, bcv, &mfv, &last_cnt, &last_val)){
         close (fd);
         return 3;
     }
 
-    if ((close (fd) == -1)) {
+    if (close (fd) == -1) {
         fprintf (stderr, "fail: close ()\n");
         return 4;
     }
