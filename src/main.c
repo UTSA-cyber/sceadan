@@ -345,7 +345,6 @@ init_defaults (
     input_f     *const do_input,
     file_type_e *const file_type
     ) {
-    //*do_output = &output_vectors_to_files;
     *do_output = &output_competition;
     *do_input  = &process_dir;
     *file_type = UNCLASSIFIED;
@@ -474,13 +473,13 @@ main (const int argc, char *const argv[])
     }
 
     FILE *outs[3];
+    memset(outs,0,sizeof(outs));
     if(file_type!=UNCLASSIFIED){
         memcpy (buf + 9 - (sizeof ("./ucv") - 1), "./ucv", sizeof ("./ucv") - 1);
 
         outs[0] = fopen (buf + 9 - (sizeof ("./ucv") - 1), "w");
         if ( outs[0] == NULL) {
-            // TODO
-            fprintf (stderr, "fopen fail\n");
+             fprintf (stderr, "fopen fail\n");
             return 1;
         }
 
@@ -488,19 +487,20 @@ main (const int argc, char *const argv[])
 
         outs[1] = fopen (buf + 9 - (sizeof ("./bcv") - 1), "w");
         if (outs[1] == NULL) {
-            // TODO
-            return 1;
+             return 1;
         }
 
         memcpy (buf + 9 - (sizeof ("./main") - 1), "./main", sizeof ("./main") - 1);
 
         outs[2] = fopen (buf + 9 - (sizeof ("./main") - 1), "w");
         if (outs[2] == NULL) {
-            // TODO
-            return 1;
+             return 1;
         }
     }
 
     do_input (input_target, block_factor, do_output, outs, file_type);
+    if(outs[0]) fclose(outs[0]);
+    if(outs[1]) fclose(outs[1]);
+    if(outs[2]) fclose(outs[2]);
     exit(0);
 }

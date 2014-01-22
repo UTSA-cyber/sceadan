@@ -54,39 +54,39 @@
 
 int
 process_blocks (
-	const char         path[],
-	const unsigned int block_factor,
-	const output_f     do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-) ;
+    const char         path[],
+    const unsigned int block_factor,
+    const output_f     do_output,
+    FILE *const outs[3],
+    file_type_e file_type
+    ) ;
 
 int
 process_container (
-	const char     path[],
-	const output_f do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-) ;
+    const char     path[],
+    const output_f do_output,
+    FILE *const outs[3],
+    file_type_e file_type
+    ) ;
 
 void
 vectors_update (
-	const unigram_t        buf[],
-	const size_t           sz,
-	      ucv_t            ucv,
-	      bcv_t            bcv,
-	      mfv_t     *const mfv,
+    const unigram_t        buf[],
+    const size_t           sz,
+    ucv_t            ucv,
+    bcv_t            bcv,
+    mfv_t     *const mfv,
 
-	      sum_t     *const last_cnt,
-	      unigram_t *const last_val
-) ;
+    sum_t     *const last_cnt,
+    unigram_t *const last_val
+    ) ;
 
 void
 vectors_finalize (
-	      ucv_t        ucv,
-	      bcv_t        bcv,
-	      mfv_t *const mfv
-) ;
+    ucv_t        ucv,
+    bcv_t        bcv,
+    mfv_t *const mfv
+    ) ;
 /* END OF FUNCTIONS */
 
 
@@ -197,22 +197,20 @@ const char *sceadan_name_for_type(int code)
 /* FUNCTIONS THAT SHOULD BE GCC BUILT INS */
 static size_t
 min (
-     const size_t a,
-     const size_t b
-     ) {
+    const size_t a,
+    const size_t b
+    ) {
     return a < b ? a : b;
 }
 
 static sum_t
 max (
-     const sum_t a,
-     const sum_t b
-     ) {
+    const sum_t a,
+    const sum_t b
+    ) {
     return a > b ? a : b;
 }
 /* END FUNCTIONS THAT SHOULD BE GCC BUILT INS */
-
-
 
 static int ftw_callback_block_factor = 0;
 static output_f ftw_callback_do_output = 0;
@@ -221,16 +219,16 @@ static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
 
 int
 ftw_callback (
-              const char                fpath[],
-              const struct stat *const sb,
-              const int                 typeflag
-              );
+    const char                fpath[],
+    const struct stat *const sb,
+    const int                 typeflag
+    );
 int
 ftw_callback (
-              const char                fpath[],
-              const struct stat *const sb,
-              const int                 typeflag
-              ) {
+    const char                fpath[],
+    const struct stat *const sb,
+    const int                 typeflag
+    ) {
     switch (typeflag) {
     case FTW_D: /* directory */
         break;
@@ -248,19 +246,16 @@ ftw_callback (
 // TODO full path vs relevant path may matter
 int
 process_dir (
-             const          char path[],
-             const unsigned int  block_factor,
-             const output_f      do_output,
-             FILE *const outs[3],
-             file_type_e file_type
-             ) {
-    int i;
-    // dys-functional programming
-
-    // http://voyager.deanza.edu/~perry/ftw.html
+    const          char path[],
+    const unsigned int  block_factor,
+    const output_f      do_output,
+    FILE *const outs[3],
+    file_type_e file_type
+    )
+{
     ftw_callback_block_factor = block_factor;
     ftw_callback_do_output    = do_output;
-    for(i=0;i<3;i++){
+    for(int i=0;i<3;i++){
         ftw_callback_outs[i] = outs[i];
     }
 
@@ -273,12 +268,12 @@ process_dir (
 /* FUNCTIONS FOR PROCESSING FILES */
 int
 process_file (
-              const          char path[],
-              const unsigned int  block_factor,
-              const output_f      do_output,
-	      FILE *const outs[3],
-	      file_type_e file_type
-              ) {
+    const          char path[],
+    const unsigned int  block_factor,
+    const output_f      do_output,
+    FILE *const outs[3],
+    file_type_e file_type
+    ) {
     return block_factor
 	?       process_blocks    (path, block_factor, do_output, outs, file_type)
 	:       process_container (path,               do_output, outs, file_type);
@@ -291,7 +286,7 @@ do_predict ( const ucv_t               ucv,
              const bcv_t               bcv,
              const mfv_t        *const mfv,
              file_type_e  *const file_type,
-             struct feature_node *x, //const x,
+             struct feature_node *x, 
              struct model*      model_ )
 {
     int n;
@@ -304,11 +299,13 @@ do_predict ( const ucv_t               ucv,
     
     int i = 0;
     
+    /* Add the unigrams to the vector */
     for (int k = 0 ; k < n_unigram; k++, i++) {
         x[i].index = i + 1;
         x[i].value = ucv[k].avg;
     }
     
+    /* Add the bigrams to the vector */
     for (int k = 0; k < n_unigram; k++)
         for (int j = 0; j < n_unigram; j++) {
             x[i].index = i + 1;
@@ -316,14 +313,15 @@ do_predict ( const ucv_t               ucv,
             i++;
         }
     
+    /* Add the Bias */
     if(model_->bias>=0)    {
         x[i].index = n;
         x[i].value = model_->bias;
         i++;
     }
-    x[i].index = -1;
+    x[i].index = -1;                    /* end of vectors? */
     
-    int predict_label = predict(model_,x);
+    int predict_label = predict(model_,x); /* run the predictor */
     *file_type = (file_type_e) predict_label;
     return 0;
 }
@@ -332,79 +330,73 @@ do_predict ( const ucv_t               ucv,
 static struct model* model_ = 0;
 static int
 predict_liblin (
-	const ucv_t        ucv,
-	const bcv_t        bcv,
-	      mfv_t *const mfv,
-	      file_type_e *const file_type
-) {
-	// TODO floating point comparison
-	if (mfv->item_entropy > RANDOMNESS_THRESHOLD) {
-		*file_type = RAND;
-		return 0;
-	}
-
-	int i, j;
-	for (i = 0; i < n_unigram; i++) {
-		// TODO floating point comparison
-		if (ucv[i].avg > UCV_CONST_THRESHOLD) {
-				*file_type = UCV_CONST;
-				mfv->const_chr[0] = i;
-				return 0;
-		}
-		for (j = 0; j < n_unigram; j++)
-			// TODO floating point comparison
-			if (bcv[i][j].avg > BCV_CONST_THRESHOLD) {
-				*file_type = BCV_CONST;
-				mfv->const_chr[0] = i;
-				mfv->const_chr[1] = j;
-				return 0;
-			}
-	}
-	
-	
-	// Load model
-	const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
-
+    const ucv_t        ucv,
+    const bcv_t        bcv,
+    mfv_t *const mfv,
+    file_type_e *const file_type
+    )
+{
+    if (mfv->item_entropy > RANDOMNESS_THRESHOLD) {
+        *file_type = RAND;
+        return 0;
+    }
+    
+    for (int i = 0; i < n_unigram; i++) {
+        // TODO floating point comparison
+        if (ucv[i].avg > UCV_CONST_THRESHOLD) {
+            *file_type = UCV_CONST;
+            mfv->const_chr[0] = i;
+            return 0;
+        }
+        for (int j = 0; j < n_unigram; j++)
+            // TODO floating point comparison
+            if (bcv[i][j].avg > BCV_CONST_THRESHOLD) {
+                *file_type = BCV_CONST;
+                mfv->const_chr[0] = i;
+                mfv->const_chr[1] = j;
+                return 0;
+            }
+    }
+    
+    // Load model
+    const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
+    
+    if(model_==0){
+        model_=load_model(MODEL);
         if(model_==0){
-          model_=load_model(MODEL);
-          if(model_==0){
             fprintf(stderr,"can't open model file %s\n","");
             return 1;
-          }
         }
-	struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
-	do_predict(ucv, bcv, mfv, file_type,x, model_);
-	//free_and_destroy_model(&model_);
-	free(x);
-	return 0;
+    }
+    struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
+    do_predict(ucv, bcv, mfv, file_type,x, model_);
+    //free_and_destroy_model(&model_);
+    free(x);
+    return 0;
 }
-
-
 
 /* FUNCTIONS FOR PROCESSING BLOCKS */
 static int
 process_blocks0 (
-                 const char          path[],
-                 const int          fd,
-                 const unsigned int  block_factor,
-                 const output_f      do_output,
-                 FILE         *const outs[3],
-                 file_type_e file_type
-                 ) {
+    const char          path[],
+    const int          fd,
+    const unsigned int  block_factor,
+    const output_f      do_output,
+    FILE         *const outs[3],
+    file_type_e file_type )
+{
     size_t offset = 0;
 
     while (true) {
         ucv_t ucv; memset(&ucv,0,sizeof(ucv)); 
         bcv_t bcv; memset(&bcv,0,sizeof(bcv));
         mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;
-        //mfv_t mfv = MFV_CONTAINER_LIT;
 
         mfv.id_container = path;
         mfv.id_block = offset;
 		
         sum_t     last_cnt = 0;
         unigram_t last_val;
-
 
         size_t tot;
         for (tot = 0; tot != block_factor; ) {
@@ -460,12 +452,12 @@ process_blocks0 (
 
 int
 process_blocks (
-                const char         path[],
-                const unsigned int block_factor,
-                const output_f     do_output,
-                FILE     *const outs[3],
-                file_type_e file_type
-                ) {
+    const char         path[],
+    const unsigned int block_factor,
+    const output_f     do_output,
+    FILE     *const outs[3],
+    file_type_e file_type )
+{
     const int fd = open (path, O_RDONLY|O_BINARY);
     if ( (fd == -1)) {
         fprintf (stderr, "fail: open2 ()\n");
@@ -473,9 +465,9 @@ process_blocks (
     }
 
     if ((
-         process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0
+            process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0
 		
-         )) {
+            )) {
         close (fd);
         return 3;
     }
@@ -487,24 +479,20 @@ process_blocks (
 
     return 0;
 }
-/* END FUNCTIONS FOR PROCESSING BLOCKS */
-
 
 /* FUNCTIONS FOR PROCESSING CONTAINERS */
 
-/* implements a multi-level break */
 static int
 process_container0 (
-                    const int         fd,
-                    ucv_t            ucv,
-                    bcv_t            bcv,
-                    mfv_t     *const mfv,
+    const int         fd,
+    ucv_t            ucv,
+    bcv_t            bcv,
+    mfv_t     *const mfv,
 
-                    sum_t     *const last_cnt,
-                    unigram_t *const last_val//,
-                    ) {
-
-
+    sum_t     *const last_cnt,
+    unigram_t *const last_val//,
+    )
+{
     while (true) {
         char    buf[BUFSIZ];
         const ssize_t rd = read (fd, buf, sizeof (buf));
@@ -527,11 +515,11 @@ process_container0 (
 
 int
 process_container (
-                   const char            path[],
-                   const output_f        do_output,
-                   FILE     *const outs[3],
-                   file_type_e file_type
-                   ) {
+    const char            path[],
+    const output_f        do_output,
+    FILE     *const outs[3],
+    file_type_e file_type
+    ) {
     ucv_t ucv; memset(&ucv,0,sizeof(ucv)); //= UCV_LIT;
     bcv_t bcv; memset(&bcv,0,sizeof(bcv));// = BCV_LIT;
     mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
@@ -575,21 +563,21 @@ process_container (
 /* FUNCTIONS FOR VECTORS */
 void
 vectors_update (
-                const unigram_t        buf[],
-                const size_t           sz,
-                ucv_t            ucv,
-                bcv_t            bcv,
-                mfv_t     *const mfv,
+    const unigram_t        buf[],
+    const size_t           sz,
+    ucv_t            ucv,
+    bcv_t            bcv,
+    mfv_t     *const mfv,
 
-                sum_t     *const last_cnt,
-                unigram_t *const last_val
-                ) {
+    sum_t     *const last_cnt,
+    unigram_t *const last_val )
+{
     const int sz_mod = mfv->uni_sz % 2;
 
     size_t ndx;
     for (ndx = 0; ndx < sz; ndx++) {
 
-        // ucv
+        /* Compute the unigrams */
         const unigram_t unigram = buf[ndx];
         ucv[unigram].tot++;
 
@@ -602,21 +590,15 @@ vectors_update (
                 next = unigram;
 
                 bcv[prev][next].tot++;
-                //#ifdef RESEARCH
                 mfv->contiguity.tot += abs (next - prev);
-                //#endif
             } else if (ndx + 1 < sz) {
                 prev = unigram;
                 next = buf[ndx + 1];
-                //#ifdef RESEARCH
                 mfv->contiguity.tot += abs (next - prev);
-                //#endif
-                if (ndx % 2 == sz_mod)
-                    bcv[prev][next].tot++;
+                if (ndx % 2 == sz_mod) bcv[prev][next].tot++;
             }
         }
 
-        //#ifdef RESEARCH
         // total count of set bits (for hamming weight)
         // this is wierd
         mfv->hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
@@ -637,29 +619,26 @@ vectors_update (
         mfv->max_byte_streak.tot = max (*last_cnt, mfv->max_byte_streak.tot);
 
         // count of low ascii values
-        if       (unigram < ASCII_LO_VAL)
-            mfv->lo_ascii_freq.tot++;
+        if       (unigram < ASCII_LO_VAL) mfv->lo_ascii_freq.tot++;
 
         // count of medium ascii values
-        else if (unigram < ASCII_HI_VAL)
-            mfv->med_ascii_freq.tot++;
+        else if (unigram < ASCII_HI_VAL) mfv->med_ascii_freq.tot++;
 
         // count of high ascii values
-        else
+        else {
             mfv->hi_ascii_freq.tot++;
-        //#endif
+        }
     }
 
-    // item size
     mfv->uni_sz += sz;
 }
 
 void
 vectors_finalize (
-                  ucv_t        ucv,
-                  bcv_t        bcv,
-                  mfv_t *const mfv
-                  ) {
+    ucv_t        ucv,
+    bcv_t        bcv,
+    mfv_t *const mfv
+    ) {
     //#ifdef RESEARCH
     // hamming weight
     mfv->hamming_weight.avg = (double) mfv->hamming_weight.tot
@@ -707,7 +686,6 @@ vectors_finalize (
             if (fabs(pv)>0) // TODO
                 mfv->bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
         }
-        //#ifdef RESEARCH
         {
             const double extmp = __builtin_powi ((double) i, 3) * ucv[i].avg;
 
@@ -717,9 +695,7 @@ vectors_finalize (
             // for kurtosis
             expectancy_x4 += extmp * i;
         }
-        //#endif
     }
-    //#ifdef RESEARCH
     const double variance  = (double) mfv->stddev_byte_val.tot / mfv->uni_sz
         - __builtin_powi (mfv->byte_value.avg, 2);
 
@@ -736,8 +712,7 @@ vectors_finalize (
     mfv->skewness = (expectancy_x3
                      - mfv->byte_value.avg * (3 * variance
 	                                      + __builtin_powi (mfv->byte_value.avg,
-	                                                        2)))
-        / sigma3;
+	                                                        2))) / sigma3;
 
     // kurtosis
     if ( (isinf (expectancy_x4))) {
@@ -769,7 +744,7 @@ int output_competition (const ucv_t        ucv,
                         const mfv_t *const mfv,
                         FILE  *const unused[3],
                         file_type_e file_type
-                        )
+    )
 {
     assert((mfv->id_type==ID_CONTAINER) ||  (mfv->id_type==ID_BLOCK));
     printf ("%-10zu %s # %s\n", mfv->id_block,sceadan_name_for_type(file_type),mfv->id_container);
