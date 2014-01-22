@@ -39,6 +39,9 @@
 
 
 /* STANDARD INCLUDES */                                  /* STANDARD INCLUDES */
+#include "config.h"
+
+
 #include <stdbool.h>
 #include <getopt.h>
 #include <limits.h>
