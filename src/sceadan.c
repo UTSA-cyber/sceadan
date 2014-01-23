@@ -318,10 +318,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 
 
 
-static int do_predict ( sceadan_vectors_t *v,
-                        file_type_e  *const file_type,
-                        struct feature_node *x, 
-                        const struct model*      model_ )
+static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struct feature_node *x )
 {
     int n;
     int nr_feature=get_nr_feature(model_);
@@ -354,44 +351,37 @@ static int do_predict ( sceadan_vectors_t *v,
         i++;
     }
     x[i].index = -1;                    /* end of vectors? */
-    
-    int predict_label = predict(model_,x); /* run the predictor */
-    *file_type = (file_type_e) predict_label;
-    return 0;
+    return predict(model_,x); /* run the predictor */
 }
 
 
-static int predict_liblin (    const struct model *model_,
-                               sceadan_vectors_t *v,
-                               file_type_e *const file_type )
+/* predict the vectors with a model and return the predicted type */
+static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
 {
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
-        *file_type = RAND;
-        return 0;
+        return RAND;
     }
     
     for (int i = 0; i < n_unigram; i++) {
         // TODO floating point comparison
         if (v->ucv[i].avg > UCV_CONST_THRESHOLD) {
-            *file_type = UCV_CONST;
             v->mfv.const_chr[0] = i;
-            return 0;
+            return UCV_CONST;
         }
         for (int j = 0; j < n_unigram; j++)
             // TODO floating point comparison
             if (v->bcv[i][j].avg > BCV_CONST_THRESHOLD) {
-                *file_type = BCV_CONST;
                 v->mfv.const_chr[0] = i;
                 v->mfv.const_chr[1] = j;
-                return 0;
+                return BCV_CONST;
             }
     }
     
     const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
     struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
-    do_predict(v, file_type,x, model_);
+    int ret = do_predict(model_,v, x);
     free(x);
-    return 0;
+    return ret;
 }
 
 /* FUNCTIONS FOR PROCESSING BLOCKS */
@@ -424,7 +414,7 @@ static int process_blocks0 ( const char          path[],
         vectors_update (buf, rd, &v, &last_cnt, &last_val);
         vectors_finalize (&v);
         if(file_type==UNCLASSIFIED){
-            predict_liblin (sceadan_model_precompiled(),&v, &file_type);
+            file_type = predict_liblin (sceadan_model_precompiled(),&v);
         }
         do_output (&v,file_type);
         offset += rd;
@@ -475,13 +465,9 @@ int process_container ( const char            path[],
     vectors_finalize (&v);
 
     if(file_type==UNCLASSIFIED){
-        if ( (predict_liblin (sceadan_model_precompiled(),&v,&file_type) != 0)) {
-            return 6;
-        }
+        file_type = predict_liblin (sceadan_model_precompiled(),&v);
     }
-    if ((do_output (&v,file_type) != 0)) {
-        return 5;
-    }
+    do_output (&v,file_type);
     return 0;
 }
 /* END FUNCTIONS FOR PROCESSING CONTAINERS */
@@ -615,9 +601,7 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 
     vectors_update (buf, bufsize, &v, &last_cnt, &last_val);
     vectors_finalize (&v);
-    file_type_e file_type=0;
-    predict_liblin (s->model,&v, &file_type);
-    return file_type;
+    return predict_liblin (s->model,&v);
 }
 
 int sceadan_classify_file(const sceadan *s,const char *fname)
@@ -637,8 +621,6 @@ int sceadan_classify_file(const sceadan *s,const char *fname)
     }
     if(close(fd)<0) return -1;
     vectors_finalize (&v);
-    file_type_e file_type=UNCLASSIFIED;
-    predict_liblin (s->model,&v, &file_type);
-    return file_type;
+    return predict_liblin (s->model,&v);
 }
 
