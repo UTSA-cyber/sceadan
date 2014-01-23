@@ -5,7 +5,7 @@ bin_PROGRAMS = sceadan_app mcompile
 sceadan_app_SOURCES = main.c $(SCEADAN)
 mcompile_SOURCES = mcompile.cpp $(SCEADAN)
 
-sceadan_model_precompiled.c: mcompile
+new: mcompile
 	./mcompile model > sceadan_model_precompiled.c
 
 TESTS = test.sh

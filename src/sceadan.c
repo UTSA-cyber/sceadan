@@ -150,25 +150,14 @@ const char *sceadan_name_for_type(int code)
     return(0);
 }
 
-
-
-/* FUNCTIONS THAT SHOULD BE GCC BUILT INS */
-static size_t
-min (
-    const size_t a,
-    const size_t b
-    ) {
+static size_t min ( const size_t a, const size_t b ) {
     return a < b ? a : b;
 }
 
-static sum_t
-max (
-    const sum_t a,
-    const sum_t b
-    ) {
+static sum_t max ( const sum_t a, const sum_t b ) {
     return a > b ? a : b;
 }
-/* END FUNCTIONS THAT SHOULD BE GCC BUILT INS */
+
 
 /* FUNCTIONS FOR VECTORS */
 static void vectors_update (const uint8_t      buf[],
@@ -240,7 +229,6 @@ static void vectors_update (const uint8_t      buf[],
 
 static void vectors_finalize ( sceadan_vectors_t *v)
 {
-    //#ifdef RESEARCH
     // hamming weight
     v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot
         / (v->mfv.uni_sz * nbit_unigram);
@@ -260,43 +248,37 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     double expectancy_x4 = 0;
 
     const double central_tendency = v->mfv.byte_value.avg;
-    //#endif
-    size_t i;
-    for (i = 0; i < n_unigram; i++) {
+    for (int i = 0; i < n_unigram; i++) {
 
-        //#ifdef RESEARCH
         v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
-        //#endif
-        {
-            // unigram frequency
-            v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.uni_sz;
 
-            // item entropy
-            const double pv = v->ucv[i].avg;
-            if (fabs(pv)>0) // TODO floating point mumbo jumbo
-                v->mfv.item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
-        }
+        // unigram frequency
+        v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.uni_sz;
 
-        size_t j;
-        for (j = 0; j < n_unigram; j++) {
+        // item entropy
+        double pv = v->ucv[i].avg;
+        if (fabs(pv)>0) // TODO floating point mumbo jumbo
+            v->mfv.item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
+
+        for (int j = 0; j < n_unigram; j++) {
 
             v->bcv[i][j].avg = (double) v->bcv[i][j].tot / (v->mfv.uni_sz / 2); // rounds down
 
             // bigram entropy
-            const double pv = v->bcv[i][j].avg;
+            pv = v->bcv[i][j].avg;
             if (fabs(pv)>0) // TODO
                 v->mfv.bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
         }
-        {
-            const double extmp = __builtin_powi ((double) i, 3) * v->ucv[i].avg;
 
-            // for skewness
-            expectancy_x3 += extmp;
+        const double extmp = __builtin_powi ((double) i, 3) * v->ucv[i].avg;
 
-            // for kurtosis
-            expectancy_x4 += extmp * i;
-        }
+        // for skewness
+        expectancy_x3 += extmp;
+
+        // for kurtosis
+        expectancy_x4 += extmp * i;
     }
+
     const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.uni_sz
         - __builtin_powi (v->mfv.byte_value.avg, 2);
 
@@ -335,7 +317,6 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     v->mfv.lo_ascii_freq.avg  = (double) v->mfv.lo_ascii_freq.tot  / v->mfv.uni_sz;
     v->mfv.med_ascii_freq.avg = (double) v->mfv.med_ascii_freq.tot / v->mfv.uni_sz;
     v->mfv.hi_ascii_freq.avg  = (double) v->mfv.hi_ascii_freq.tot  / v->mfv.uni_sz;
-    //#endif
 }
 /* END FUNCTIONS FOR VECTORS */
 
@@ -490,12 +471,10 @@ process_blocks0 (
     __builtin_unreachable ();
 }
 
-int
-process_blocks (
-    const char         path[],
-    const unsigned int block_factor,
-    const output_f     do_output,
-    file_type_e file_type )
+int process_blocks (    const char         path[],
+                        const unsigned int block_factor,
+                        const output_f     do_output,
+                        file_type_e file_type )
 {
     fprintf(stderr,"process_blocks %s\n",path);
     const int fd = open(path, O_RDONLY|O_BINARY);
@@ -503,7 +482,7 @@ process_blocks (
         fprintf (stderr, "fail: open2 ()\n");
         return 2;
     }
-
+    
     if (process_blocks0 (path, fd, block_factor, do_output, file_type)){
         close (fd);
         return 3;
@@ -517,11 +496,9 @@ process_blocks (
     return 0;
 }
 
-int
-process_container (
-    const char            path[],
-    const output_f        do_output,
-    file_type_e file_type ) 
+int process_container ( const char            path[],
+                        const output_f        do_output,
+                        file_type_e file_type ) 
 {
     fprintf(stderr,"process_container %s\n",path);
 
@@ -657,60 +634,54 @@ void sceadan_model_dump(const struct model *model)
 }
 
 
-#if 0
-sceadan *sceadan_open(const char *moden_name) // use 0 for default model
+sceadan *sceadan_open(const char *model_name) // use 0 for default model
 {
     sceadan *s = (sceadan *)calloc(sizeof(sceadan *),1);
     if(model_name){
-        s->model = local_model(model_name);
+        s->model = load_model(model_name);
         if(s->model==0){
             free(s);
             return 0;
         }
         return s;
     }
-    s->model = get_model_default();
+    s->model = sceadan_model_default();
     return s;
 }
 
-int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize)
+int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 {
     sceadan_vectors_t v; memset(&v,0,sizeof(v));
     v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
+    sum_t     last_cnt = 0;
+    unigram_t last_val;
 
-    vectors_update (buf, rd, &v, &last_cnt, &last_val);
+    vectors_update (buf, bufsize, &v, &last_cnt, &last_val);
     vectors_finalize (&v);
-    file_type_t file_type;
-
-    if(file_type==UNCLASSIFIED){
-        if ( (predict_liblin (sceadan_model_default(),&v, &file_type) != 0)) {
-            return 6;
-        }
-    }
-    if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, file_type) != 0)) {
-        return 5;
-    }
-    return 0;
-}
-
-int sceadan_classify_file(const sceadan *,const char *fname)
-{
-    sceadan_vectors v; memset(&v,0,sizeof(v));
-
-    const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0) return -1;                /* error condition */
-    while (true) {
-        char    buf[BUFSIZ];
-        const ssize_t rd = read (fd, buf, sizeof (buf));
-        if(rd<=0) break;
-        vectors_update ((unigram_t *) buf, rd, v.ucv, v.bcv, &v.mfv, &last_cnt, &last_val);
-    }
-    if(close(fd)<0) return -1;
-    vectors_finalize (ucv, bcv, &mfv);
-    file_type_t file_type=UNCLASSIFIED;
-    predict_liblin (sceadan_model_default(),ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, &file_type);
+    file_type_e file_type=0;
+    predict_liblin (s->model,&v, &file_type);
     return file_type;
 }
 
+int sceadan_classify_file(const sceadan *s,const char *fname)
+{
+    struct sceadan_vectors v; memset(&v,0,sizeof(v));
+    v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
+    sum_t     last_cnt = 0;
+    unigram_t last_val;
 
-#endif
+    const int fd = open(fname, O_RDONLY|O_BINARY);
+    if (fd<0) return -1;                /* error condition */
+    while (true) {
+        uint8_t    buf[BUFSIZ];
+        const ssize_t rd = read (fd, buf, sizeof (buf));
+        if(rd<=0) break;
+        vectors_update (buf, rd, &v, &last_cnt, &last_val);
+    }
+    if(close(fd)<0) return -1;
+    vectors_finalize (&v);
+    file_type_e file_type=UNCLASSIFIED;
+    predict_liblin (s->model,&v, &file_type);
+    return file_type;
+}
+

@@ -191,7 +191,7 @@ const char *sceadan_name_for_type(int i);
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
 struct sceadan_t {
-    struct model *model;
+    const struct model *model;
 };
 typedef struct sceadan_t sceadan;
 
@@ -225,7 +225,7 @@ const struct model *sceadan_model_default(void); // from a file
 void sceadan_model_dump(const struct model *); // to stdout
 sceadan *sceadan_open(const char *moden_name); // use 0 for default model
 int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
-int sceadan_classify_buf(const sceadan *,const char *buf,size_t bufsize);
+int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(int);
 void sceadan_close(sceadan *);
 
