@@ -78,7 +78,6 @@ typedef int (*input_f) (
     const          char *const input_target,
     const unsigned int         block_factor,
     const output_f             output_vectors,
-    FILE          *const outs[3],
     file_type_e          file_type
     );
 /* END TYPEDEFS FOR I/O */
@@ -437,9 +436,9 @@ parse_args (const int argc,
        and ‘--brief’ as they are encountered,
        we report the final status resulting from them. */
 
-	if ( (optind != argc - 2)) {
-            printf ("incorrect number of positional parameters\n");
-            puts ("try sceadan -h h");
+	if ( optind != argc - 2) {
+            printf("incorrect number of positional parameters\n");
+            puts("try sceadan -h h");
             exit(-1);
 	}
 
@@ -472,35 +471,6 @@ main (const int argc, char *const argv[])
         return 1;
     }
 
-    FILE *outs[3];
-    memset(outs,0,sizeof(outs));
-    if(file_type!=UNCLASSIFIED){
-        memcpy (buf + 9 - (sizeof ("./ucv") - 1), "./ucv", sizeof ("./ucv") - 1);
-
-        outs[0] = fopen (buf + 9 - (sizeof ("./ucv") - 1), "w");
-        if ( outs[0] == NULL) {
-             fprintf (stderr, "fopen fail\n");
-            return 1;
-        }
-
-        memcpy (buf + 9 - (sizeof ("./bcv") - 1), "./bcv", sizeof ("./bcv") - 1);
-
-        outs[1] = fopen (buf + 9 - (sizeof ("./bcv") - 1), "w");
-        if (outs[1] == NULL) {
-             return 1;
-        }
-
-        memcpy (buf + 9 - (sizeof ("./main") - 1), "./main", sizeof ("./main") - 1);
-
-        outs[2] = fopen (buf + 9 - (sizeof ("./main") - 1), "w");
-        if (outs[2] == NULL) {
-             return 1;
-        }
-    }
-
-    do_input (input_target, block_factor, do_output, outs, file_type);
-    if(outs[0]) fclose(outs[0]);
-    if(outs[1]) fclose(outs[1]);
-    if(outs[2]) fclose(outs[2]);
+    do_input (input_target, block_factor, do_output, file_type);
     exit(0);
 }

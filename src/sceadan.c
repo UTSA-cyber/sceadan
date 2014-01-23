@@ -57,7 +57,6 @@ process_blocks (
     const char         path[],
     const unsigned int block_factor,
     const output_f     do_output,
-    FILE *const outs[3],
     file_type_e file_type
     ) ;
 
@@ -65,7 +64,6 @@ int
 process_container (
     const char     path[],
     const output_f do_output,
-    FILE *const outs[3],
     file_type_e file_type
     ) ;
 
@@ -214,7 +212,6 @@ max (
 
 static int ftw_callback_block_factor = 0;
 static output_f ftw_callback_do_output = 0;
-static FILE * ftw_callback_outs[3];
 static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
 
 int
@@ -237,7 +234,7 @@ ftw_callback (
         break;
     case FTW_F: /* normal file */
         // if it works, it'll work fast (by an insignificant amount)
-        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_outs, ftw_callback_file_type);
+        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_file_type);
     }
     return 0;
 }
@@ -249,16 +246,11 @@ process_dir (
     const          char path[],
     const unsigned int  block_factor,
     const output_f      do_output,
-    FILE *const outs[3],
     file_type_e file_type
     )
 {
     ftw_callback_block_factor = block_factor;
     ftw_callback_do_output    = do_output;
-    for(int i=0;i<3;i++){
-        ftw_callback_outs[i] = outs[i];
-    }
-
     ftw_callback_file_type    = file_type;
     return ftw (path, &ftw_callback, FTW_NOPENFD);
 }
@@ -271,12 +263,11 @@ process_file (
     const          char path[],
     const unsigned int  block_factor,
     const output_f      do_output,
-    FILE *const outs[3],
-    file_type_e file_type
-    ) {
+    file_type_e file_type ) 
+{
     return block_factor
-	?       process_blocks    (path, block_factor, do_output, outs, file_type)
-	:       process_container (path,               do_output, outs, file_type);
+	?       process_blocks    (path, block_factor, do_output, file_type)
+	:       process_container (path,               do_output, file_type);
 }
 /* END FUNCTIONS FOR PROCESSING FILES */
 
@@ -382,7 +373,6 @@ process_blocks0 (
     const int          fd,
     const unsigned int  block_factor,
     const output_f      do_output,
-    FILE         *const outs[3],
     file_type_e file_type )
 {
     size_t offset = 0;
@@ -419,7 +409,7 @@ process_blocks0 (
                         }
                         //	break;
                     default:
-                        if ( (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
+                        if ( (do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, file_type) != 0)) {
                             return 5;
                         }
                     }
@@ -442,7 +432,7 @@ process_blocks0 (
                 return 6;
             }
         }
-        if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
+        if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, file_type) != 0)) {
             return 5;
         }
         offset += tot;
@@ -455,7 +445,6 @@ process_blocks (
     const char         path[],
     const unsigned int block_factor,
     const output_f     do_output,
-    FILE     *const outs[3],
     file_type_e file_type )
 {
     const int fd = open (path, O_RDONLY|O_BINARY);
@@ -465,7 +454,7 @@ process_blocks (
     }
 
     if ((
-            process_blocks0 (path, fd, block_factor, do_output, (FILE *const *const) outs, file_type) != 0
+            process_blocks0 (path, fd, block_factor, do_output, file_type) != 0
 		
             )) {
         close (fd);
@@ -517,9 +506,8 @@ int
 process_container (
     const char            path[],
     const output_f        do_output,
-    FILE     *const outs[3],
-    file_type_e file_type
-    ) {
+    file_type_e file_type ) 
+{
     ucv_t ucv; memset(&ucv,0,sizeof(ucv)); //= UCV_LIT;
     bcv_t bcv; memset(&bcv,0,sizeof(bcv));// = BCV_LIT;
     mfv_t mfv; memset(&mfv,0,sizeof(mfv)); mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
@@ -552,7 +540,7 @@ process_container (
             return 6;
         }
     }
-    if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, outs, file_type) != 0)) {
+    if ((do_output (ucv, (const cv_e (*const)[n_unigram]) bcv, &mfv, file_type) != 0)) {
         return 5;
     }
     return 0;
@@ -742,7 +730,6 @@ vectors_finalize (
 int output_competition (const ucv_t        ucv,
                         const bcv_t        bcv,
                         const mfv_t *const mfv,
-                        FILE  *const unused[3],
                         file_type_e file_type
     )
 {
