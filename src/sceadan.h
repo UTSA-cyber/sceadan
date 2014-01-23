@@ -197,7 +197,6 @@ struct sceadan_vectors {
 typedef struct sceadan_vectors sceadan_vectors_t;
 struct sceadan_t {
     const struct model *model;
-    struct sceadan_vectors v;
 };
 typedef struct sceadan_t sceadan;
 
