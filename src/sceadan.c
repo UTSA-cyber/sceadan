@@ -52,21 +52,6 @@
 
 
 
-int
-process_blocks (
-    const char         path[],
-    const unsigned int block_factor,
-    const output_f     do_output,
-    file_type_e file_type
-    ) ;
-
-int
-process_container (
-    const char     path[],
-    const output_f do_output,
-    file_type_e file_type
-    ) ;
-
 void
 vectors_update (
     const unigram_t        buf[],
@@ -104,10 +89,6 @@ vectors_finalize (
 #define UCV_CONST_THRESHOLD  (.5)
 #define BCV_CONST_THRESHOLD  (.5)
 
-
-/* number of open file descriptors for ftw
-   TODO tune this parameter */
-#define FTW_NOPENFD (7)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #define BZ2_BLOCK_SZ     (9)
@@ -209,68 +190,6 @@ max (
     return a > b ? a : b;
 }
 /* END FUNCTIONS THAT SHOULD BE GCC BUILT INS */
-
-static int ftw_callback_block_factor = 0;
-static output_f ftw_callback_do_output = 0;
-static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
-
-int
-ftw_callback (
-    const char                fpath[],
-    const struct stat *const sb,
-    const int                 typeflag
-    );
-int
-ftw_callback (
-    const char                fpath[],
-    const struct stat *const sb,
-    const int                 typeflag
-    ) {
-    switch (typeflag) {
-    case FTW_D: /* directory */
-        break;
-    case FTW_DNR: /* non-traversable */
-        // TODO logging ?
-        break;
-    case FTW_F: /* normal file */
-        // if it works, it'll work fast (by an insignificant amount)
-        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_file_type);
-    }
-    return 0;
-}
-
-/* FUNCTIONS FOR PROCESSING DIRECTORIES */
-// TODO full path vs relevant path may matter
-int
-process_dir (
-    const          char path[],
-    const unsigned int  block_factor,
-    const output_f      do_output,
-    file_type_e file_type
-    )
-{
-    ftw_callback_block_factor = block_factor;
-    ftw_callback_do_output    = do_output;
-    ftw_callback_file_type    = file_type;
-    return ftw (path, &ftw_callback, FTW_NOPENFD);
-}
-/* END FUNCTIONS FOR PROCESSING DIRECTORIES */
-
-
-/* FUNCTIONS FOR PROCESSING FILES */
-int
-process_file (
-    const          char path[],
-    const unsigned int  block_factor,
-    const output_f      do_output,
-    file_type_e file_type ) 
-{
-    return block_factor
-	?       process_blocks    (path, block_factor, do_output, file_type)
-	:       process_container (path,               do_output, file_type);
-}
-/* END FUNCTIONS FOR PROCESSING FILES */
-
 
 static int
 do_predict ( const ucv_t               ucv,
@@ -472,15 +391,13 @@ process_blocks (
 /* FUNCTIONS FOR PROCESSING CONTAINERS */
 
 static int
-process_container0 (
-    const int         fd,
-    ucv_t            ucv,
-    bcv_t            bcv,
-    mfv_t     *const mfv,
-
-    sum_t     *const last_cnt,
-    unigram_t *const last_val//,
-    )
+process_container0 ( const int         fd,
+                     ucv_t            ucv,
+                     bcv_t            bcv,
+                     mfv_t     *const mfv,
+                     
+                     sum_t     *const last_cnt,
+                     unigram_t *const last_val )
 {
     while (true) {
         char    buf[BUFSIZ];

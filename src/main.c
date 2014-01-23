@@ -17,61 +17,30 @@
 
 //===============================================================================================================//
 
-// -fprofile-arcs
-// -fprofile-generate
-// -fprofile-use
-
-//-fbranch-probabilities
-//-fvpt
-//-funroll-loops
-//-fpeel-loops
-//-ftracer
-
-//-fprofile-values
-//-frename-registers
-//-fmove-loop-invariants
-//-funswitch-loops
-//-ffunction-sections
-//-fdata-sections
-//-fbranch-target-load-optimize
-//-fbranch-target-load-optimize2
-//-fsection-anchors
-
-
-/* STANDARD INCLUDES */                                  /* STANDARD INCLUDES */
 #include "config.h"
 
-
+#include "config.h"
+#include <assert.h>
+#include <ftw.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
 #include <getopt.h>
 #include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #include "sceadan.h"
 
-
-/* END MACRO CONSTANTS */                              /* END MACRO CONSTANTS */
-
-
-
-/* TYPEDEFS */                                                    /* TYPEDEFS */
 // http://www.newty.de/fpt/fpt.html
-typedef void (*const parse_f) (
-    const char         arg[],
-    char **const endptr,
-    void  *const res
-    );
-/* END TYPEDEFS */                                            /* END TYPEDEFS */
+typedef void (*const parse_f) ( const char         arg[],
+                                char **const endptr,
+                                void  *const res );
 
-/* Flag set by ‘--verbose’. */
 int verbose_flag=0;
-
-/* Value set by '-c', or '--concurrency-factor'. */
-/* Not used, since this version does not support multi-thread */
-/*static*/ unsigned int concurrency_factor=0;
 
 /* TYPEDEFS FOR I/O */
 typedef int (*input_f) (
@@ -90,24 +59,15 @@ print_usage (const char subsection) {
     switch (subsection) {
 
     case 'h':
-        puts ("help mode: help mode");
+        puts ("help: help mode");
         puts ("sceadan [-c <#>] [-i <f|d|i|b>] [-o <s|f|b|c>] [-t <0-42>] [--verbose|--brief] <input target> <block factor>");
         puts ("\tstandard usage");
         puts ("sceadan -h <c|i|o|t|v|b|g|f|h>");
         puts ("\tmore help !!!");
         break;
 
-    case 'c':
-        puts ("help mode: concurrency factor");
-        puts ("[-c <(non-negative integer)>]");
-        puts ("concurrency factor");
-        puts ("default: 0");
-        puts ("\t0 : auto");
-        puts ("\t# : number of threads (not supported)");
-        break;
-
     case 'i':
-        puts ("help mode: input mode");
+        puts ("help: input mode");
         puts ("[-i <f|d|i|b>]");
         puts ("input mode");
         puts ("default: d");
@@ -123,7 +83,7 @@ print_usage (const char subsection) {
         break;
 
     case 'o':
-        puts ("help mode: output mode");
+        puts ("help: output mode");
         puts ("[-o <s|f|b|c>]");
         puts ("output mode");
         puts ("default: f");
@@ -137,7 +97,7 @@ print_usage (const char subsection) {
         break;
 
     case 't':
-        puts ("help mode: target label");
+        puts ("help: target label");
         puts ("[-t <0-42>]");
         puts ("type label");
         puts ("default: 0");
@@ -148,68 +108,25 @@ print_usage (const char subsection) {
                 else break;
             }
         }
-        puts ("\t 0 : unclassified      - predict mode");
-        puts ("\t 1 : text              - train   mode");
-        puts ("\t 2 : csv               - train   mode");
-        puts ("\t 3 : log               - train   mode");
-        puts ("\t 4 : html              - train   mode");
-        puts ("\t 5 : xml               - train   mode");
-        puts ("\t 6 : css               - train   mode");
-        puts ("\t 7 : js                - train   mode");
-        puts ("\t 8 : json              - train   mode");
-        puts ("\t 9 : jpg               - train   mode");
-        puts ("\t10 : png               - train   mode");
-        puts ("\t11 : gif               - train   mode");
-        puts ("\t12 : tif               - train   mode");
-        puts ("\t13 : gz                - train   mode");
-        puts ("\t14 : zip               - train   mode");
-        puts ("\t15 : bz2               - train   mode");
-        puts ("\t16 : pdf               - train   mode");
-        puts ("\t17 : doc               - train   mode");
-        puts ("\t18 : xls               - train   mode");
-        puts ("\t19 : ppt               - train   mode");
-        puts ("\t20 : docx              - train   mode");
-        puts ("\t21 : xlsx              - train   mode");
-        puts ("\t22 : pptx              - train   mode");
-        puts ("\t23 : mp3               - train   mode");
-        puts ("\t24 : m4a               - train   mode");
-        puts ("\t25 : mp4               - train   mode");
-        puts ("\t26 : avi               - train   mode");
-        puts ("\t27 : wmv               - train   mode");
-        puts ("\t28 : flv               - train   mode");
-        puts ("\t29 : b64               - train   mode");
-        puts ("\t30 : a85               - train   mode");
-        puts ("\t31 : url               - train   mode");
-        puts ("\t32 : fat               - train   mode");
-        puts ("\t33 : ntfs              - train   mode");
-        puts ("\t34 : ext3              - train   mode");
-        puts ("\t35 : aes  (or rand)    - train   mode");
-        puts ("\t36 : rand (hi entropy) - train   mode");
-        puts ("\t37 : ps                - train   mode");
-        puts ("\t38 : pps               - train   mode");
-        puts ("\t39 : bmp               - train   mode");
-        puts ("\t40 : java              - train   mode");
-        puts ("\t41 : ucv const         - train   mode");
-        puts ("\t42 : bcv const         - train   mode");
         break;
 
     case 'v':
     case 'b':
-        puts ("help mode: verbose mode or brief mode");
+        puts ("help: verbose mode or brief mode");
         puts ("[--verbose|--brief]");
         puts ("verbosity");
         puts ("default: brief");
         break;
 
     case 'g':
-        puts ("help mode: input target");
+        puts ("help: input target");
         puts ("<(see input mode)>");
         puts ("input target");
         puts ("default: (none)");
         break;
 
     case 'f':
-        puts ("help mode: block factor");
+        puts ("help: block factor");
         puts ("<(unsigned integer)>");
         puts ("block factor");
         puts ("default: (none)");
@@ -223,24 +140,17 @@ print_usage (const char subsection) {
     }
 }
 
-static void
-parse_uint (    const char         arg[],
-                char **const endptr,
-                void  *const res )
+static void parse_uint (    const char         arg[],
+                            char **const endptr,
+                            void  *const res )
 {
-    const unsigned long tmp = strtoul (arg, endptr, 0);
-    if ( (tmp > UINT_MAX))
-        exit(-1);
-
-    *((unsigned int *) res) = tmp;
+    *((unsigned int *) res) = strtoul (arg, endptr, 0);
 }
 
-static void
-parse_input_arg (
-    const char            arg[],
-    const char    **const endptr,
-    input_f  *const res
-    ) {
+static void parse_input_arg ( const char            arg[],
+                              const char    **const endptr,
+                              input_f  *const res )
+{
     switch (arg[0]) {
 
     case 'f':
@@ -253,16 +163,6 @@ parse_input_arg (
         printf ("\tinput-mode        : directory\n");
         break;
 
-    case 'i':
-//		*res = &process_img;
-        printf ("\tinput-mode        : image\n");
-        break;
-
-    case 'b':
-//		*res = &process_db;
-        printf ("\tinput-mode        : database\n");
-        break;
-
     default:
         puts ("invalid input mode");
         puts ("try sceadan -h i");
@@ -273,11 +173,10 @@ parse_input_arg (
 }
 
 static void
-parse_output_arg (
-    const char             arg[],
-    const char     **const endptr,
-    output_f  *const res
-    ) {
+parse_output_arg ( const char             arg[],
+                   const char     **const endptr,
+                   output_f  *const res    )
+{
     switch (arg[0]) {
 
     case 's':
@@ -304,22 +203,18 @@ parse_output_arg (
     *endptr = arg + 1;
 }
 
-static void
-parse_help_arg (
-    const char            arg[],
-    const char    **const endptr,
-    char     *const res
-    ) {
+static void parse_help_arg ( const char            arg[],
+                             const char    **const endptr,
+                             char     *const res )
+{
     *res = arg[0];
     *endptr = arg + 1;
 }
 
-static void
-parse_arg (
-    const char           arg[],
-    void    *const res,
-    const parse_f        parse
-    ) {
+static void parse_arg ( const char arg[],
+                        void    *const res,
+                        const parse_f        parse )
+{
     // don't parse empty arg
     if ((*arg == '\0')) {
         printf ("empty parameter\n");
@@ -338,17 +233,6 @@ parse_arg (
     }
 }
 
-static void
-init_defaults (
-    output_f    *const do_output,
-    input_f     *const do_input,
-    file_type_e *const file_type
-    ) {
-    *do_output = &output_competition;
-    *do_input  = &process_dir;
-    *file_type = UNCLASSIFIED;
-}
-
 // http://www.gnu.org/software/libc/manual/html_node/Example-of-Getopt.html
 // http://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html
 static void
@@ -362,8 +246,6 @@ parse_args (const int argc,
 {
     char help_chr;
 
-    init_defaults (do_output, do_input, file_type);
-
     while (true) {
         static struct option long_options[] =	{
             // TODO help
@@ -372,9 +254,7 @@ parse_args (const int argc,
             {"verbose",            no_argument,       &verbose_flag, 1},
             {"brief",              no_argument,       &verbose_flag, 0},
             
-            /* These options don't set a flag.
-               We distinguish them by their indices. */
-            {"concurrency-factor", required_argument, 0, 'c'},
+            /* These options don't set a flag. We distinguish them by their indices. */
             {"input-type",         required_argument, 0, 'i'},
             {"output-type",        required_argument, 0, 'o'},
             {"file-type",          required_argument, 0, 't'},
@@ -385,22 +265,14 @@ parse_args (const int argc,
         /* getopt_long stores the option index here. */
         int option_index = 0;
         
-        const int c = getopt_long (argc, argv, "c:i:o:t:h:",
-                                   long_options, &option_index);
+        const int c = getopt_long (argc, argv, "i:o:t:h:", long_options, &option_index);
         
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
-        
+        if (c == -1) break;        /* End of the options. */
         switch (c) {
         case 0:
             /* If this option set a flag, do nothing else now. */
             if ( (long_options[option_index].flag != 0))
                 break;
-            break;
-
-        case 'c':
-            parse_arg (optarg, &concurrency_factor, &parse_uint);
             break;
 
         case 'i':
@@ -419,7 +291,6 @@ parse_args (const int argc,
             parse_arg (optarg, &help_chr, (parse_f) &parse_help_arg);
             print_usage (help_chr);
             exit (EXIT_SUCCESS);
-            //break;
 
         case '?':
             /* getopt_long already printed an error message. */
@@ -436,41 +307,90 @@ parse_args (const int argc,
        and ‘--brief’ as they are encountered,
        we report the final status resulting from them. */
 
-	if ( optind != argc - 2) {
-            printf("incorrect number of positional parameters\n");
-            puts("try sceadan -h h");
-            exit(-1);
-	}
+    if ( optind != argc - 2) {
+        printf("incorrect number of positional parameters\n");
+        puts("try sceadan -h h");
+        exit(-1);
+    }
 
     *input_target = argv[optind++];
-
     parse_arg (argv[optind], block_factor, parse_uint);
 }
 
-#define TIME_BUF_SZ (80)
+static int ftw_callback_block_factor = 0;
+static output_f ftw_callback_do_output = 0;
+static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
+
 int
-main (const int argc, char *const argv[])
+ftw_callback (
+    const char                fpath[],
+    const struct stat *const sb,
+    const int                 typeflag
+    );
+int
+ftw_callback (
+    const char                fpath[],
+    const struct stat *const sb,
+    const int                 typeflag
+    ) {
+    switch (typeflag) {
+    case FTW_D: /* directory */
+        break;
+    case FTW_DNR: /* non-traversable */
+        // TODO logging ?
+        break;
+    case FTW_F: /* normal file */
+        // if it works, it'll work fast (by an insignificant amount)
+        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_file_type);
+    }
+    return 0;
+}
+
+/* FUNCTIONS FOR PROCESSING DIRECTORIES */
+// TODO full path vs relevant path may matter
+#define FTW_MAXOPENFD 8
+int
+process_dir (
+    const          char path[],
+    const unsigned int  block_factor,
+    const output_f      do_output,
+    file_type_e file_type
+    )
 {
-    const char         *input_target;
+    ftw_callback_block_factor = block_factor;
+    ftw_callback_do_output    = do_output;
+    ftw_callback_file_type    = file_type;
+    return ftw (path, &ftw_callback, FTW_MAXOPENFD);
+}
+/* END FUNCTIONS FOR PROCESSING DIRECTORIES */
+
+
+/* FUNCTIONS FOR PROCESSING FILES */
+int
+process_file (
+    const          char path[],
+    const unsigned int  block_factor,
+    const output_f      do_output,
+    file_type_e file_type ) 
+{
+    return block_factor
+	?       process_blocks    (path, block_factor, do_output, file_type)
+	:       process_container (path,               do_output, file_type);
+}
+/* END FUNCTIONS FOR PROCESSING FILES */
+
+int main (const int argc, char *const argv[])
+{
+    const char     *input_target=0;
     unsigned int  block_factor;
-    output_f      do_output;
-    input_f       do_input;
-    file_type_e   file_type;
+    output_f      do_output = output_competition;
+    input_f       do_input = process_dir;
+    file_type_e   file_type = UNCLASSIFIED;
 
     parse_args (argc, argv,
 		&input_target, &block_factor,
 		&do_output, &do_input, &file_type );
     
-    time_t rawtime= time(0);
-    char buf [TIME_BUF_SZ];
-
-    struct tm *timeinfo = localtime ( &rawtime );
-
-    const size_t strsz = strftime (buf + 9, TIME_BUF_SZ - 9,".%Y%m%d.%H%M%S",timeinfo);
-    if ( (strsz == 0 || strsz == TIME_BUF_SZ - 9)) {
-        return 1;
-    }
-
     do_input (input_target, block_factor, do_output, file_type);
     exit(0);
 }

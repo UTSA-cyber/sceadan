@@ -1,5 +1,9 @@
 2014-01-23  Simson Garfinkel  <simsong@Dance.local>
 
+	* main.c (parse_args): removed init_defaults(); variables are now initialized when they are defined, rather than defined uninitialized and initialized in a function.
+	(main): removed time-based filenames that were not being used
+	(parse_args): removed concurrency factor (since it wasn't being used)
+
 	* sceadan.c (process_container): removed outs[] from entire code base.
 
 2014-01-22  Simson Garfinkel  <simsong@Dance.local>

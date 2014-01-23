@@ -219,4 +219,19 @@ output_competition  (
                      ) ;
 
 
+int
+process_blocks (
+    const char         path[],
+    const unsigned int block_factor,
+    const output_f     do_output,
+    file_type_e file_type
+    ) ;
+
+int
+process_container (
+    const char     path[],
+    const output_f do_output,
+    file_type_e file_type
+    ) ;
+
 #endif
