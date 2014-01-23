@@ -385,24 +385,25 @@ static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
 }
 
 /* FUNCTIONS FOR PROCESSING BLOCKS */
-static int process_blocks0 ( const char          path[],
-                             const int          fd,
-                             const unsigned int  block_factor,
-                             const output_f      do_output,
-                             file_type_e file_type )
+int process_blocks (    const char         path[],
+                        const unsigned int block_factor,
+                        const output_f     do_output,
+                        file_type_e file_type )
 {
-    size_t offset = 0;
+    fprintf(stderr,"process_blocks %s\n",path);
+    const int fd = open(path, O_RDONLY|O_BINARY);
+    if (fd<0){perror("open");return -1;}
 
+    size_t offset = 0;
+    uint8_t   *buf = malloc(block_factor);
     while (true) {
         sceadan_vectors_t v; memset(&v,0,sizeof(v));
-
         v.mfv.id_type = ID_CONTAINER;
         v.mfv.id_container = path;
         v.mfv.id_block = offset;
 		
         sum_t     last_cnt = 0;
         unigram_t last_val=0;
-        uint8_t   *buf = malloc(block_factor);
         if(buf==0){
             perror("malloc");
             exit(1);
@@ -419,21 +420,7 @@ static int process_blocks0 ( const char          path[],
         do_output (&v,file_type);
         offset += rd;
     } 
-    return 0;
-}
-
-int process_blocks (    const char         path[],
-                        const unsigned int block_factor,
-                        const output_f     do_output,
-                        file_type_e file_type )
-{
-    fprintf(stderr,"process_blocks %s\n",path);
-    const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0){perror("open");return -1;}
-    if (process_blocks0 (path, fd, block_factor, do_output, file_type)){
-        close (fd);
-        return -1;
-    }
+    free(buf);
     if (close (fd)<0){ perror("close"); return -1; }
     return 0;
 }
