@@ -40,22 +40,55 @@ typedef void (*const parse_f) ( const char         arg[],
                                 char **const endptr,
                                 void  *const res );
 
-int verbose_flag=0;
-
-/* TYPEDEFS FOR I/O */
-typedef int (*input_f) (
-    const          char *const input_target,
-    const unsigned int         block_factor,
-    const output_f             output_vectors,
-    file_type_e          file_type
-    );
-/* END TYPEDEFS FOR I/O */
+typedef int (*input_f) ( const          char *const input_target,
+                         const unsigned int   block_factor,
+                         const output_f       output_vectors,
+                         file_type_e          file_type );
 
 
-/* FUNCTIONS FOR HANDLING COMMAND LINE PARAMETERS */
+/* FUNCTIONS FOR PROCESSING FILES */
+static int process_file (const          char path[],
+                  const unsigned int  block_factor,
+                  const output_f      do_output,
+                  file_type_e file_type ) 
+{
+    return block_factor
+	?       process_blocks    (path, block_factor, do_output, file_type)
+	:       process_container (path,               do_output, file_type);
+}
 
-static void
-print_usage (const char subsection) {
+
+static int ftw_callback_block_factor      = 0;
+static output_f ftw_callback_do_output    = 0;
+static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
+
+static int ftw_callback ( const char                fpath[],
+                          const struct stat *const sb,
+                          const int                 typeflag )
+{
+    if(typeflag==FTW_F){
+        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_file_type);
+    }
+    return 0;
+}
+
+/* FUNCTIONS FOR PROCESSING DIRECTORIES */
+// TODO full path vs relevant path may matter
+#define FTW_MAXOPENFD 8
+static int process_dir ( const          char path[],
+              const unsigned int  block_factor,
+              const output_f      do_output,
+              file_type_e file_type )
+{
+    ftw_callback_block_factor = block_factor;
+    ftw_callback_do_output    = do_output;
+    ftw_callback_file_type    = file_type;
+    return ftw (path, &ftw_callback, FTW_MAXOPENFD);
+}
+
+
+static void print_usage (const char subsection)
+{
     switch (subsection) {
 
     case 'h':
@@ -101,12 +134,10 @@ print_usage (const char subsection) {
         puts ("[-t <0-42>]");
         puts ("type label");
         puts ("default: 0");
-        {
-            for(int i=0;;i++){
-                const char *name = sceadan_name_for_type(i);
-                if(name) printf("\t%2d : %-18s - %s mode\n",i,name,i==0 ? "predict" : "train  ");
-                else break;
-            }
+        for(int i=0;;i++){
+            const char *name = sceadan_name_for_type(i);
+            if(name) printf("\t%2d : %-18s - %s mode\n",i,name,i==0 ? "predict" : "train  ");
+            else break;
         }
         break;
 
@@ -152,7 +183,6 @@ static void parse_input_arg ( const char            arg[],
                               input_f  *const res )
 {
     switch (arg[0]) {
-
     case 'f':
         *res = &process_file;
         printf ("\tinput-mode        : file\n");
@@ -167,30 +197,26 @@ static void parse_input_arg ( const char            arg[],
         puts ("invalid input mode");
         puts ("try sceadan -h i");
         exit(-1);
-    } // end switch input type
+    } 
 
     *endptr = arg + 1;
 }
 
-static void
-parse_output_arg ( const char             arg[],
-                   const char     **const endptr,
-                   output_f  *const res    )
+static void parse_output_arg ( const char             arg[],
+                               const char     **const endptr,
+                               output_f  *const res    )
 {
     switch (arg[0]) {
 
     case 's':
-//		*res = &output_vectors_to_stdout;
         printf ("\toutput-mode       : stdout\n");
         break;
 
     case 'f':
-//		*res = &output_vectors_to_files;
         printf ("\toutput-mode       : files\n");
         break;
 
     case 'b':
-//		*res = &output_vectors_to_db;
         printf ("\toutput-mode       : database\n");
         break;
 
@@ -198,7 +224,7 @@ parse_output_arg ( const char             arg[],
         printf ("invalid output mode\n");
         puts ("try sceadan -h o");
         exit(-1);
-    } // end switch output type
+    } 
 
     *endptr = arg + 1;
 }
@@ -213,7 +239,7 @@ static void parse_help_arg ( const char            arg[],
 
 static void parse_arg ( const char arg[],
                         void    *const res,
-                        const parse_f        parse )
+                        const parse_f parse )
 {
     // don't parse empty arg
     if ((*arg == '\0')) {
@@ -250,10 +276,6 @@ parse_args (const int argc,
         static struct option long_options[] =	{
             // TODO help
             
-            /* These options set a flag. */
-            {"verbose",            no_argument,       &verbose_flag, 1},
-            {"brief",              no_argument,       &verbose_flag, 0},
-            
             /* These options don't set a flag. We distinguish them by their indices. */
             {"input-type",         required_argument, 0, 'i'},
             {"output-type",        required_argument, 0, 'o'},
@@ -275,20 +297,10 @@ parse_args (const int argc,
                 break;
             break;
 
-        case 'i':
-            parse_arg (optarg, do_input, (parse_f) &parse_input_arg);
-            break;
-
-        case 'o':
-            parse_arg (optarg, do_output, (parse_f) &parse_output_arg);
-            break;
-
-        case 't':
-            parse_arg (optarg, file_type, (parse_f) &parse_uint);
-            break;
-
-        case 'h':
-            parse_arg (optarg, &help_chr, (parse_f) &parse_help_arg);
+        case 'i': parse_arg (optarg, do_input, (parse_f) &parse_input_arg); break;
+        case 'o': parse_arg (optarg, do_output, (parse_f) &parse_output_arg); break;
+        case 't': parse_arg (optarg, file_type, (parse_f) &parse_uint); break;
+        case 'h': parse_arg (optarg, &help_chr, (parse_f) &parse_help_arg);
             print_usage (help_chr);
             exit (EXIT_SUCCESS);
 
@@ -304,8 +316,9 @@ parse_args (const int argc,
     } // end (apparently) infinite while-loop
 
     /* Instead of reporting ‘--verbose’
-       and ‘--brief’ as they are encountered,
-       we report the final status resulting from them. */
+     * and ‘--brief’ as they are encountered,
+     * we report the final status resulting from them.
+     */
 
     if ( optind != argc - 2) {
         printf("incorrect number of positional parameters\n");
@@ -316,68 +329,6 @@ parse_args (const int argc,
     *input_target = argv[optind++];
     parse_arg (argv[optind], block_factor, parse_uint);
 }
-
-static int ftw_callback_block_factor = 0;
-static output_f ftw_callback_do_output = 0;
-static file_type_e ftw_callback_file_type = UNCLASSIFIED ;
-
-int
-ftw_callback (
-    const char                fpath[],
-    const struct stat *const sb,
-    const int                 typeflag
-    );
-int
-ftw_callback (
-    const char                fpath[],
-    const struct stat *const sb,
-    const int                 typeflag
-    ) {
-    switch (typeflag) {
-    case FTW_D: /* directory */
-        break;
-    case FTW_DNR: /* non-traversable */
-        // TODO logging ?
-        break;
-    case FTW_F: /* normal file */
-        // if it works, it'll work fast (by an insignificant amount)
-        process_file (fpath, ftw_callback_block_factor, ftw_callback_do_output, ftw_callback_file_type);
-    }
-    return 0;
-}
-
-/* FUNCTIONS FOR PROCESSING DIRECTORIES */
-// TODO full path vs relevant path may matter
-#define FTW_MAXOPENFD 8
-int
-process_dir (
-    const          char path[],
-    const unsigned int  block_factor,
-    const output_f      do_output,
-    file_type_e file_type
-    )
-{
-    ftw_callback_block_factor = block_factor;
-    ftw_callback_do_output    = do_output;
-    ftw_callback_file_type    = file_type;
-    return ftw (path, &ftw_callback, FTW_MAXOPENFD);
-}
-/* END FUNCTIONS FOR PROCESSING DIRECTORIES */
-
-
-/* FUNCTIONS FOR PROCESSING FILES */
-int
-process_file (
-    const          char path[],
-    const unsigned int  block_factor,
-    const output_f      do_output,
-    file_type_e file_type ) 
-{
-    return block_factor
-	?       process_blocks    (path, block_factor, do_output, file_type)
-	:       process_container (path,               do_output, file_type);
-}
-/* END FUNCTIONS FOR PROCESSING FILES */
 
 int main (const int argc, char *const argv[])
 {

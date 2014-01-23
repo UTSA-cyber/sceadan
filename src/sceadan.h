@@ -1,6 +1,10 @@
 #ifndef SCEADAN_H
 #define SCEADAN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -24,7 +28,6 @@
 typedef uint8_t  unigram_t;             // unigram 
 typedef uint16_t bigram_t; /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
 
-struct model *get_sceadan_model_precompiled();
 
 /* low  ascii range is
    0x00 <= char < 0x20 */
@@ -176,13 +179,6 @@ typedef struct {
     double uni_chi_sq;
 } mfv_t;
 
-/* TYPEDEFS FOR I/O */
-typedef int (*output_f) (
-                         const ucv_t        ucv,
-                         const bcv_t        bcv,
-                         const mfv_t *const mfv,
-                         file_type_e  file_type
-                         );
 /* END TYPEDEFS FOR I/O */
 struct sceadan_type_t {
     int code;
@@ -194,44 +190,49 @@ const char *sceadan_name_for_type(int i);
 
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
-int
-process_dir (
-             const          char path[],
-             const unsigned int  block_factor,
-             const output_f      do_output,
-             file_type_e file_type
-             ) ;
+struct sceadan_t {
+    struct model *model;
+};
+typedef struct sceadan_t sceadan;
 
-int
-process_file (
-              const          char path[],
-              const unsigned int  block_factor,
-              const output_f      do_output,
-	      file_type_e file_type
-              ) ;
+struct sceadan_vectors {
+    ucv_t ucv;
+    bcv_t bcv;
+    mfv_t mfv;
+};
+typedef struct sceadan_vectors sceadan_vectors_t;
 
-int
-output_competition  (
-                     const ucv_t        ucv,
-                     const bcv_t        bcv,
-                     const mfv_t *const mfv,
-                     file_type_e file_type
-                     ) ;
+/* TYPEDEFS FOR I/O */
+    typedef int (*output_f) (struct sceadan_vectors *v,
+                             file_type_e  file_type
+                             );
 
+int output_competition  (struct sceadan_vectors *v,file_type_e file_type ) ;
 
-int
-process_blocks (
-    const char         path[],
+int process_blocks (    const char         path[],
     const unsigned int block_factor,
     const output_f     do_output,
-    file_type_e file_type
-    ) ;
+    file_type_e file_type ) ;
 
-int
-process_container (
-    const char     path[],
+int process_container (    const char     path[],
     const output_f do_output,
-    file_type_e file_type
-    ) ;
+    file_type_e file_type ) ;
+
+
+
+const struct model *sceadan_model_precompiled(void);
+const struct model *sceadan_model_default(void); // from a file
+void sceadan_model_dump(const struct model *); // to stdout
+sceadan *sceadan_open(const char *moden_name); // use 0 for default model
+int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
+int sceadan_classify_buf(const sceadan *,const char *buf,size_t bufsize);
+const char *sceadan_name_for_type(int);
+void sceadan_close(sceadan *);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 
 #endif

@@ -6603,4 +6603,4 @@ static struct model m = {
 	.w=w,
 	.label=label,
 	.bias=-1};
-struct model *get_model_precompiled(){return &m;}
+const struct model *sceadan_model_precompiled(){return &m;}
