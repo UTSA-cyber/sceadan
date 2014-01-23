@@ -43,9 +43,10 @@
 
 int main(int argc,char **argv)
 {
-    const struct model* model = sceadan_model_precompiled();
+    const struct model* model = 0;
 
     if(argc>1){
+        fprintf(stderr,"Loading %s\n",argv[1]);
         model = load_model(argv[1]);
         if(!model){
             perror(argv[1]);

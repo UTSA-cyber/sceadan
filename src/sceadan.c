@@ -435,7 +435,7 @@ process_blocks0 (
 
                     switch (file_type) {
                     case UNCLASSIFIED:
-                        if ((predict_liblin (sceadan_model_default(),&v, &file_type) != 0)) {
+                        if ((predict_liblin (sceadan_model_precompiled(),&v, &file_type) != 0)) {
                             return 6;
                         }
                         //	break;
@@ -459,7 +459,7 @@ process_blocks0 (
         vectors_finalize (&v);
 
         if(file_type==UNCLASSIFIED){
-            if((predict_liblin (sceadan_model_default(), &v, &file_type) != 0)){
+            if((predict_liblin (sceadan_model_precompiled(), &v, &file_type) != 0)){
                 return 6;
             }
         }
@@ -534,7 +534,7 @@ int process_container ( const char            path[],
     vectors_finalize (&v);
 
     if(file_type==UNCLASSIFIED){
-        if ( (predict_liblin (sceadan_model_default(),&v,&file_type) != 0)) {
+        if ( (predict_liblin (sceadan_model_precompiled(),&v,&file_type) != 0)) {
             return 6;
         }
     }
@@ -607,10 +607,26 @@ void sceadan_model_dump(const struct model *model)
     printf("};\n");
 
     printf("static double w[] = {");
-    for(int i=0;i<model->nr_feature;i++){
-        printf("%g",model->w[i]);
-        if(i<model->nr_feature-1) putchar(',');
-        if(i%10==9) printf("\n\t");
+    int n;
+    if(model->bias>=0){
+        n = model->nr_feature+1;
+    } else {
+        n = model->nr_feature;
+    }
+    int w_size = n;
+    int nr_w;
+    if(model->nr_class==2 && model->param.solver_type != 4){
+        nr_w = 1;
+    } else {
+        nr_w = model->nr_class;
+    }
+
+    for(int i=0;i<w_size;i++){
+        for(int j=0;j<nr_w;j++){
+            printf("%.16lg",model->w[i*nr_w+j]);
+            if(i!=w_size-1 || j!=nr_w-1) putchar(',');
+        }
+        printf("\n\t");
     }
     printf("};\n");
         
@@ -645,7 +661,7 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
         }
         return s;
     }
-    s->model = sceadan_model_default();
+    s->model = sceadan_model_precompiled();
     return s;
 }
 
