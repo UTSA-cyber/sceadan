@@ -150,10 +150,6 @@ const char *sceadan_name_for_type(int code)
     return(0);
 }
 
-static size_t min ( const size_t a, const size_t b ) {
-    return a < b ? a : b;
-}
-
 static sum_t max ( const sum_t a, const sum_t b ) {
     return a > b ? a : b;
 }
@@ -399,13 +395,11 @@ static int predict_liblin (    const struct model *model_,
 }
 
 /* FUNCTIONS FOR PROCESSING BLOCKS */
-static int
-process_blocks0 (
-    const char          path[],
-    const int          fd,
-    const unsigned int  block_factor,
-    const output_f      do_output,
-    file_type_e file_type )
+static int process_blocks0 ( const char          path[],
+                             const int          fd,
+                             const unsigned int  block_factor,
+                             const output_f      do_output,
+                             file_type_e file_type )
 {
     size_t offset = 0;
 
@@ -417,58 +411,25 @@ process_blocks0 (
         v.mfv.id_block = offset;
 		
         sum_t     last_cnt = 0;
-        unigram_t last_val;
+        unigram_t last_val=0;
+        uint8_t   *buf = malloc(block_factor);
+        if(buf==0){
+            perror("malloc");
+            exit(1);
+        }
 
-        size_t tot;
-        for (tot = 0; tot != block_factor; ) {
-            uint8_t   buf[BUFSIZ];
-            size_t rd = read (fd, buf, min (block_factor - tot, BUFSIZ));
-            switch (rd) {
-            case -1:
-                fprintf (stderr, "fail: read ()\n");
-                return 1;
-            case  0:
-                if (tot != 0) {
-                    //	vectors_update ((unigram_t *) buf, tot, ucv, bcv, &mfv, &last_cnt, &last_val, &max_cnt);
-
-                    vectors_finalize (&v);
-
-                    switch (file_type) {
-                    case UNCLASSIFIED:
-                        if ((predict_liblin (sceadan_model_precompiled(),&v, &file_type) != 0)) {
-                            return 6;
-                        }
-                        //	break;
-                    default:
-                        if ( (do_output (&v,file_type) != 0)) {
-                            return 5;
-                        }
-                    }
-                }
-
-                return 0; // break from while-loop
-            default:
-
-                vectors_update (buf, rd, &v, &last_cnt, &last_val/*, &max_cnt*/);
-
-                tot += rd;
-                // continue
-            } // end switch
-        } // end for
-
+        ssize_t rd = read (fd, buf, block_factor );
+        if(rd<0){perror("read");return -1;}
+        if(rd==0) break;
+        vectors_update (buf, rd, &v, &last_cnt, &last_val);
         vectors_finalize (&v);
-
         if(file_type==UNCLASSIFIED){
-            if((predict_liblin (sceadan_model_precompiled(), &v, &file_type) != 0)){
-                return 6;
-            }
+            predict_liblin (sceadan_model_precompiled(),&v, &file_type);
         }
-        if ((do_output (&v, file_type) != 0)) {
-            return 5;
-        }
-        offset += tot;
-    } // end while
-    __builtin_unreachable ();
+        do_output (&v,file_type);
+        offset += rd;
+    } 
+    return 0;
 }
 
 int process_blocks (    const char         path[],
@@ -478,21 +439,12 @@ int process_blocks (    const char         path[],
 {
     fprintf(stderr,"process_blocks %s\n",path);
     const int fd = open(path, O_RDONLY|O_BINARY);
-    if ( (fd == -1)) {
-        fprintf (stderr, "fail: open2 ()\n");
-        return 2;
-    }
-    
+    if (fd<0){perror("open");return -1;}
     if (process_blocks0 (path, fd, block_factor, do_output, file_type)){
         close (fd);
-        return 3;
+        return -1;
     }
-
-    if (close (fd) == -1) {
-        perror("close");
-        return 4;
-    }
-
+    if (close (fd)<0){ perror("close"); return -1; }
     return 0;
 }
 
@@ -500,8 +452,6 @@ int process_container ( const char            path[],
                         const output_f        do_output,
                         file_type_e file_type ) 
 {
-    fprintf(stderr,"process_container %s\n",path);
-
     sceadan_vectors_t v; memset(&v,0,sizeof(v));
     v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
     v.mfv.id_container = path;
@@ -510,26 +460,17 @@ int process_container ( const char            path[],
     unigram_t last_val;
 
     const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0){
-        perror("open");
-        return 2;
-    }
+    if (fd<0){ perror("open"); return -1; }
 
     while (true) {
         char    buf[BUFSIZ];
         const ssize_t rd = read (fd, buf, sizeof (buf));
-        if(rd==-1){
-            perror("read");
-            return 1;
-        }
+        if(rd==-1){ perror("read"); return -1; }
         if(rd==0) break;
         vectors_update ((unigram_t *) buf, rd, &v,&last_cnt, &last_val);
     }
 
-    if (close (fd) == -1) {
-        perror("close");
-        return 4;
-    }
+    if (close (fd) == -1) { perror("close"); return -1; }
 
     vectors_finalize (&v);
 
