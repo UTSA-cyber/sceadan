@@ -74,9 +74,6 @@ typedef enum {
 
 /* main feature vector */
 typedef struct {
-
-    id_e id_type;
-
     const char *id_container;
     size_t      id_block;
 
@@ -190,42 +187,27 @@ const char *sceadan_name_for_type(int i);
 
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
-struct sceadan_t {
-    const struct model *model;
-};
-typedef struct sceadan_t sceadan;
-
 struct sceadan_vectors {
     ucv_t ucv;
     bcv_t bcv;
     mfv_t mfv;
+    sum_t last_cnt;
+    uint8_t last_val;
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
-
-/* TYPEDEFS FOR I/O */
-    typedef int (*output_f) (struct sceadan_vectors *v,
-                             file_type_e  file_type
-                             );
-
-int output_competition  (struct sceadan_vectors *v,file_type_e file_type ) ;
-
-int process_blocks (    const char         path[],
-    const unsigned int block_factor,
-    const output_f     do_output,
-    file_type_e file_type ) ;
-
-int process_container (    const char     path[],
-    const output_f do_output,
-    file_type_e file_type ) ;
+struct sceadan_t {
+    const struct model *model;
+    struct sceadan_vectors v;
+};
+typedef struct sceadan_t sceadan;
 
 
-
+sceadan *sceadan_open(const char *moden_name); // use 0 for default model precompiled
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
 void sceadan_model_dump(const struct model *); // to stdout
-sceadan *sceadan_open(const char *moden_name); // use 0 for default model
-int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
-int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
+int sceadan_classify_file(sceadan *,const char *fname);    // classify a file
+int sceadan_classify_buf(sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(int);
 void sceadan_close(sceadan *);
 

@@ -58,10 +58,6 @@
 #include <math.h>
 /* END LINKED INCLUDES */                              /* END LINKED INCLUDES */
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 #define MODEL ("model.ucv-bcv.20130509.c256.s2.e005")
 
 #define RANDOMNESS_THRESHOLD (.995)
@@ -142,6 +138,10 @@ struct sceadan_type_t sceadan_types[] = {
 };
 
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
 const char *sceadan_name_for_type(int code)
 {
     for(int i=0;sceadan_types[i].name!=0;i++){
@@ -158,9 +158,7 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 /* FUNCTIONS FOR VECTORS */
 static void vectors_update (const uint8_t      buf[],
                             const size_t           sz,
-                            sceadan_vectors_t *v,
-                            sum_t     *const last_cnt,
-                            unigram_t *const last_val )
+                            sceadan_vectors_t *v)
 {
     const int sz_mod = v->mfv.uni_sz % 2;
 
@@ -176,7 +174,7 @@ static void vectors_update (const uint8_t      buf[],
             unigram_t next;
 
             if (ndx == 0 && sz_mod != 0) {
-                prev = *last_val;
+                prev = v->last_val;
                 next = unigram;
 
                 v->bcv[prev][next].tot++;
@@ -199,14 +197,14 @@ static void vectors_update (const uint8_t      buf[],
         // standard deviation of byte values
         v->mfv.stddev_byte_val.tot += __builtin_powi ((double) unigram, 2);
 
-        if (*last_cnt != 0
-            && *last_val == unigram)
-            (*last_cnt)++;
-        else {
-            *last_cnt = 1;
-            *last_val = unigram;
+        if (v->last_cnt != 0 && v->last_val == unigram) {
+            (v->last_cnt)++;
         }
-        v->mfv.max_byte_streak.tot = max (*last_cnt, v->mfv.max_byte_streak.tot);
+        else {
+            v->last_cnt = 1;
+            v->last_val = unigram;
+        }
+        v->mfv.max_byte_streak.tot = max (v->last_cnt, v->mfv.max_byte_streak.tot);
 
         // count of low ascii values
         if       (unigram < ASCII_LO_VAL) v->mfv.lo_ascii_freq.tot++;
@@ -384,90 +382,6 @@ static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
     return ret;
 }
 
-/* FUNCTIONS FOR PROCESSING BLOCKS */
-int process_blocks (    const char         path[],
-                        const unsigned int block_factor,
-                        const output_f     do_output,
-                        file_type_e file_type )
-{
-    fprintf(stderr,"process_blocks %s\n",path);
-    const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0){perror("open");return -1;}
-
-    size_t offset = 0;
-    uint8_t   *buf = malloc(block_factor);
-    while (true) {
-        sceadan_vectors_t v; memset(&v,0,sizeof(v));
-        v.mfv.id_type = ID_CONTAINER;
-        v.mfv.id_container = path;
-        v.mfv.id_block = offset;
-		
-        sum_t     last_cnt = 0;
-        unigram_t last_val=0;
-        if(buf==0){
-            perror("malloc");
-            exit(1);
-        }
-
-        ssize_t rd = read (fd, buf, block_factor );
-        if(rd<0){perror("read");return -1;}
-        if(rd==0) break;
-        vectors_update (buf, rd, &v, &last_cnt, &last_val);
-        vectors_finalize (&v);
-        if(file_type==UNCLASSIFIED){
-            file_type = predict_liblin (sceadan_model_precompiled(),&v);
-        }
-        do_output (&v,file_type);
-        offset += rd;
-    } 
-    free(buf);
-    if (close (fd)<0){ perror("close"); return -1; }
-    return 0;
-}
-
-int process_container ( const char            path[],
-                        const output_f        do_output,
-                        file_type_e file_type ) 
-{
-    sceadan_vectors_t v; memset(&v,0,sizeof(v));
-    v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
-    v.mfv.id_container = path;
-
-    sum_t     last_cnt = 0;
-    unigram_t last_val;
-
-    const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0){ perror("open"); return -1; }
-
-    while (true) {
-        char    buf[BUFSIZ];
-        const ssize_t rd = read (fd, buf, sizeof (buf));
-        if(rd==-1){ perror("read"); return -1; }
-        if(rd==0) break;
-        vectors_update ((unigram_t *) buf, rd, &v,&last_cnt, &last_val);
-    }
-
-    if (close (fd) == -1) { perror("close"); return -1; }
-
-    vectors_finalize (&v);
-
-    if(file_type==UNCLASSIFIED){
-        file_type = predict_liblin (sceadan_model_precompiled(),&v);
-    }
-    do_output (&v,file_type);
-    return 0;
-}
-/* END FUNCTIONS FOR PROCESSING CONTAINERS */
-
-
-// prints finalized vectors
-int output_competition (struct sceadan_vectors *v,
-                        file_type_e file_type )
-{
-    assert((v->mfv.id_type==ID_CONTAINER) ||  (v->mfv.id_type==ID_BLOCK));
-    printf ("%-10zu %s # %s\n", v->mfv.id_block,sceadan_name_for_type(file_type),v->mfv.id_container);
-    return 0;
-}
 
 struct model *model_ = 0;
 const struct model *sceadan_model_default()
@@ -579,24 +493,23 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
     return s;
 }
 
-int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
+void sceadan_close(sceadan *s)
+{
+    free(s);
+}
+
+int sceadan_classify_buf(sceadan *s,const uint8_t *buf,size_t bufsize)
 {
     sceadan_vectors_t v; memset(&v,0,sizeof(v));
-    v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
-    sum_t     last_cnt = 0;
-    unigram_t last_val;
 
-    vectors_update (buf, bufsize, &v, &last_cnt, &last_val);
+    vectors_update (buf, bufsize, &v);
     vectors_finalize (&v);
     return predict_liblin (s->model,&v);
 }
 
-int sceadan_classify_file(const sceadan *s,const char *fname)
+int sceadan_classify_file(sceadan *s,const char *fname)
 {
     struct sceadan_vectors v; memset(&v,0,sizeof(v));
-    v.mfv.id_type = ID_CONTAINER;// = MFV_CONTAINER_LIT;
-    sum_t     last_cnt = 0;
-    unigram_t last_val;
 
     const int fd = open(fname, O_RDONLY|O_BINARY);
     if (fd<0) return -1;                /* error condition */
@@ -604,7 +517,7 @@ int sceadan_classify_file(const sceadan *s,const char *fname)
         uint8_t    buf[BUFSIZ];
         const ssize_t rd = read (fd, buf, sizeof (buf));
         if(rd<=0) break;
-        vectors_update (buf, rd, &v, &last_cnt, &last_val);
+        vectors_update (buf, rd, &v);
     }
     if(close(fd)<0) return -1;
     vectors_finalize (&v);

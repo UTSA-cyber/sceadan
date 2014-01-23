@@ -57,7 +57,7 @@ WARNINGS_TO_TEST="-Wall -MD -D_FORTIFY_SOURCE=2 -Wpointer-arith \
     -Wshadow -Wwrite-strings -Wcast-align  \
     -Wredundant-decls -Wdisabled-optimization \
     -Wfloat-equal -Wmultichar -Wmissing-noreturn \
-    -Wstrict-null-sentinel -Woverloaded-virtual -Wsign-promo \
+    -Woverloaded-virtual -Wsign-promo \
     -funit-at-a-time"
 
 if test x"${mingw}" != "xyes" ; then
