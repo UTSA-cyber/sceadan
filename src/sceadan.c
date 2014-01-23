@@ -353,7 +353,14 @@ static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struc
 }
 
 
-/* predict the vectors with a model and return the predicted type */
+/* predict the vectors with a model and return the predicted type.
+ * 
+ * That is to handle vectors of too little or too much
+ * variance/entropy, e.g. a file of all 0x00s will be considered
+ * CONSTANT, or a file of all random unigrams will be considered
+ * RANDOM. We consider those vectors abnormal and taken special care
+ * of, instead of predicting. 
+ */
 static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
 {
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {

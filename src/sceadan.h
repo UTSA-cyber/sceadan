@@ -191,7 +191,7 @@ struct sceadan_vectors {
     ucv_t ucv;
     bcv_t bcv;
     mfv_t mfv;
-    sum_t last_cnt;
+    sum_t last_cnt;                     // for computing runs of characters
     uint8_t last_val;
 };
 typedef struct sceadan_vectors sceadan_vectors_t;

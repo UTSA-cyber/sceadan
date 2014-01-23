@@ -19,7 +19,7 @@ typedef enum {
 	URL = 14, 	/* file type description: URL encoding file extensions: .urlencoded */
 	PS = 15, 	/* file type description: Postscript file extensions: .ps */
 	RTF = 16, 	/* file type description: Rich Text File file extensions: .rtf */
-	TBIRD = 17, 	/* file type description: Thunderbird Mail Files (data and index) file extensions: .msf and no extension */
+	TBIRD = 17, 	/* file type description: Thunderbird Mail Files (data and index) file extensions: .msf, no extension */
 	PST = 18, 	/* file type description: MS Outlook PST files file extensions: .pst */
 	PNG = 19, 	/* file type description: Portable Network Graphic file extensions:  */
 	GIF = 20, 	/* file type description: GIF file extensions: .gif */
