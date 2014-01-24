@@ -523,8 +523,27 @@ static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struc
  * RANDOM. We consider those vectors abnormal and taken special care
  * of, instead of predicting. 
  */
-static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
+static int predict_liblin(const sceadan *s,sceadan_vectors_t *v)
 {
+    if(s->dump){                        /* dumping, not predicting */
+        printf("{ \"file_type\": %d,\n",s->file_type);
+        printf("  \"unigrams\": { \n");
+        for(int i=0;i<n_unigram;i++){
+            const char *comma = i>0 ? "," : "";
+            if(v->ucv[i].avg>0) printf("    %s%d : %.18lg\n",comma,i,v->ucv[i].avg);
+        }
+        printf("  },\n");
+        printf("  \"bigrams:\": { \n");
+        for(int i=0;i<n_unigram;i++){
+            for(int j=0;j<n_unigram;j++){
+                const char *comma = i>0 ? "," : "";
+                if(v->bcv[i][j].avg>0) printf("    %s%d : %.18lg\n",comma,i<<8|j,v->bcv[i][j].avg);
+            }
+        }
+        printf("  }\n");
+        printf("}\n");
+        return 0;
+    }
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
         return RAND;
     }
@@ -546,7 +565,7 @@ static int predict_liblin (    const struct model *model_, sceadan_vectors_t *v)
     
     const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
     struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
-    int ret = do_predict(model_,v, x);
+    int ret = do_predict(s->model,v, x);
     free(x);
     return ret;
 }
@@ -649,7 +668,7 @@ void sceadan_model_dump(const struct model *model)
 
 sceadan *sceadan_open(const char *model_name) // use 0 for default model
 {
-    sceadan *s = (sceadan *)calloc(sizeof(sceadan *),1);
+    sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
     if(model_name){
         s->model = load_model(model_name);
         if(s->model==0){
@@ -668,16 +687,16 @@ void sceadan_close(sceadan *s)
     free(s);
 }
 
-int sceadan_classify_buf(sceadan *s,const uint8_t *buf,size_t bufsize)
+int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 {
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     vectors_update (buf, bufsize, &v);
-    vectors_finalize (&v);
-    return predict_liblin (s->model,&v);
+    vectors_finalize(&v);
+    return predict_liblin(s,&v);
 }
 
-int sceadan_classify_file(sceadan *s,const char *fname)
+int sceadan_classify_file(const sceadan *s,const char *fname)
 {
     struct sceadan_vectors v;
     memset(&v,0,sizeof(v));
@@ -690,7 +709,12 @@ int sceadan_classify_file(sceadan *s,const char *fname)
         vectors_update (buf, rd, &v);
     }
     if(close(fd)<0) return -1;
-    vectors_finalize (&v);
-    return predict_liblin (s->model,&v);
+    vectors_finalize(&v);
+    return predict_liblin(s,&v);
 }
 
+void sceadan_dump_vectors_on_classify(sceadan *s,int file_type,FILE *out)
+{
+    s->dump = out;
+    s->file_type = file_type;
+}

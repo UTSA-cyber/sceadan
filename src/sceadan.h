@@ -21,6 +21,8 @@ __BEGIN_DECLS
 
 struct sceadan_t {
     const struct model *model;
+    FILE *dump;
+    int file_type;                    // when dumping
 };
 typedef struct sceadan_t sceadan;
 
@@ -30,11 +32,11 @@ void sceadan_model_dump(const struct model *); // to stdout
 sceadan *sceadan_open(const char *moden_name); // use 0 for default model precompiled
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
-int sceadan_classify_file(sceadan *,const char *fname);    // classify a file
-int sceadan_classify_buf(sceadan *,const uint8_t *buf,size_t bufsize);
+int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
+int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(int);
 void sceadan_close(sceadan *);
-void sceadan_vectors_dump(sceadan *,FILE *out);
+void sceadan_dump_vectors_on_classify(sceadan *,int file_type,FILE *out); // dump vectors instead of classifying
 
 __END_DECLS
 

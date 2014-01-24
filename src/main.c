@@ -42,6 +42,7 @@
 /* Globals for the stand-alone program */
 
 size_t block_factor = 0;
+int    opt_train = 0;
 
 static void do_output(const char *path,uint64_t offset,int file_type )
 {
@@ -50,50 +51,49 @@ static void do_output(const char *path,uint64_t offset,int file_type )
 
 
 
-/* FUNCTIONS FOR PROCESSING FILES */
-static void process_file (const char path[]) 
+static int process_file(const char path[],
+                        const struct stat *const sb,
+                        const int typeflag )
 {
-    sceadan *s = sceadan_open(0);
-
-    /* Test the single-file classifier */
-    if(block_factor==0){
-        do_output(path,0,sceadan_classify_file(s,path));
+    if(typeflag==FTW_F){
+        sceadan *s = sceadan_open(0);
+        
+        if(opt_train){
+            sceadan_dump_vectors_on_classify(s,opt_train,stdout);
+        }
+        
+        /* Test the single-file classifier */
+        if(block_factor==0){
+            do_output(path,0,sceadan_classify_file(s,path));
+            sceadan_close(s);
+            return 0;
+        }
+        
+        /* Test the incremental classifier */
+        const int fd = open(path, O_RDONLY|O_BINARY);
+        if (fd<0){perror("open");exit(0);}
+        uint8_t   *buf = malloc(block_factor);
+        if(buf==0){ perror("malloc"); exit(1); }
+        
+        /* Read the file one block at a time */
+        uint64_t offset = 0;
+        while(true){
+            const ssize_t rd = read (fd, buf, block_factor);
+            if(rd==-1){ perror("read"); exit(0);}
+            if(rd==0) break;
+            do_output(path,offset,sceadan_classify_buf(s,buf,rd));
+            offset += rd;
+        }
+        free(buf);
         sceadan_close(s);
-        return;
     }
-
-    /* Test the incremental classifier */
-    const int fd = open(path, O_RDONLY|O_BINARY);
-    if (fd<0){perror("open");exit(0);}
-    uint8_t   *buf = malloc(block_factor);
-    if(buf==0){ perror("malloc"); exit(1); }
-
-    /* Read the file one block at a time */
-    uint64_t offset = 0;
-    while(true){
-        const ssize_t rd = read (fd, buf, block_factor);
-        if(rd==-1){ perror("read"); exit(0);}
-        if(rd==0) break;
-        do_output(path,offset,sceadan_classify_buf(s,buf,rd));
-        offset += rd;
-    }
-    free(buf);
-    sceadan_close(s);
-}
-
-
-static int ftw_callback( const char fpath[],
-                          const struct stat *const sb,
-                          const int typeflag )
-{
-    if(typeflag==FTW_F) process_file (fpath);
     return 0;
 }
 
 #define FTW_MAXOPENFD 8
 static void process_dir( const          char path[])
 {
-    ftw (path, &ftw_callback, FTW_MAXOPENFD);
+    ftw (path, &process_file, FTW_MAXOPENFD);
 }
 
 
@@ -105,15 +105,21 @@ void usage()
     puts("  -t <class>  - generate features for <class> and output to stdout");
     puts("  -h          - generate help");
     puts("");
-        
+    puts("Classes");
+    for(int i=0;sceadan_name_for_type(i);i++){
+        printf("\t%2d : %s\n",i,sceadan_name_for_type(i));
+    }
     exit(0);
 }
 
 int main (int argc, char *const argv[])
 {
     int ch;
-    while((ch = getopt(argc,argv,"h")) != -1){
+    while((ch = getopt(argc,argv,"t:h")) != -1){
         switch(ch){
+        case 't':
+            opt_train = atoi(optarg);
+            break;
         case 'h':
             usage();
             exit(0);
