@@ -47,33 +47,23 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #include "sceadan.h"
 
 
+#define MODEL ("model")                 /* default model file */
+
+#define RANDOMNESS_THRESHOLD (.995)     /* ignore things more random than this */
+#define UCV_CONST_THRESHOLD  (.5)       /* ignore UCV more than this */
+#define BCV_CONST_THRESHOLD  (.5)       /* ignore BCV more than this */
 
 
-
-/* LINKED INCLUDES */                                      /* LINKED INCLUDES */
-#include <math.h>
-/* END LINKED INCLUDES */                              /* END LINKED INCLUDES */
-
-#define MODEL ("model.ucv-bcv.20130509.c256.s2.e005")
-
-#define RANDOMNESS_THRESHOLD (.995)
-#define UCV_CONST_THRESHOLD  (.5)
-#define BCV_CONST_THRESHOLD  (.5)
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-#define BZ2_BLOCK_SZ     (9)
-#define BZ2_WORK_FACTOR  (0)
-
-#define ZL_LEVEL (9)
-#define WASTE_SZ (4096)
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+/* one of two master lists of types. This should be auto-generated from a file */
 struct sceadan_type_t sceadan_types[] = {
     {0,"unclassified"},
     {A85,"a85"},
@@ -138,9 +128,6 @@ struct sceadan_type_t sceadan_types[] = {
 };
 
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
 
 const char *sceadan_name_for_type(int code)
 {
@@ -156,14 +143,12 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 
 
 /* FUNCTIONS FOR VECTORS */
-static void vectors_update (const uint8_t      buf[],
-                            const size_t           sz,
+static void vectors_update (const uint8_t buf[],
+                            const size_t sz,
                             sceadan_vectors_t *v)
 {
     const int sz_mod = v->mfv.uni_sz % 2;
-
-    size_t ndx;
-    for (ndx = 0; ndx < sz; ndx++) {
+    for (int ndx = 0; ndx < sz; ndx++) {
 
         /* Compute the unigrams */
         const unigram_t unigram = buf[ndx];
@@ -217,15 +202,13 @@ static void vectors_update (const uint8_t      buf[],
             v->mfv.hi_ascii_freq.tot++;
         }
     }
-
     v->mfv.uni_sz += sz;
 }
 
 static void vectors_finalize ( sceadan_vectors_t *v)
 {
     // hamming weight
-    v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot
-        / (v->mfv.uni_sz * nbit_unigram);
+    v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot / (v->mfv.uni_sz * nbit_unigram);
 
     // mean byte value
     v->mfv.byte_value.avg = (double) v->mfv.byte_value.tot / v->mfv.uni_sz;
@@ -266,11 +249,8 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 
         const double extmp = __builtin_powi ((double) i, 3) * v->ucv[i].avg;
 
-        // for skewness
-        expectancy_x3 += extmp;
-
-        // for kurtosis
-        expectancy_x4 += extmp * i;
+        expectancy_x3 += extmp;        // for skewness
+        expectancy_x4 += extmp * i;     // for kurtosis
     }
 
     const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.uni_sz
@@ -292,14 +272,8 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 	                                                        2))) / sigma3;
 
     // kurtosis
-    if ( (isinf (expectancy_x4))) {
-        fprintf (stderr, "isinf (expectancy_x4)\n");
-        assert (0);
-    }
-    if ( (isinf (variance2))) {
-        fprintf (stderr, "isinf (variance2)\n");
-        assert (0);
-    }
+    assert(isinf(expectancy_x4)==0);
+    assert(isinf(variance2)==0);
 
     v->mfv.kurtosis = (expectancy_x4 / variance2);
     v->mfv.byte_value.avg      /= n_unigram;
@@ -312,8 +286,6 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     v->mfv.med_ascii_freq.avg = (double) v->mfv.med_ascii_freq.tot / v->mfv.uni_sz;
     v->mfv.hi_ascii_freq.avg  = (double) v->mfv.hi_ascii_freq.tot  / v->mfv.uni_sz;
 }
-/* END FUNCTIONS FOR VECTORS */
-
 
 
 static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struct feature_node *x )
@@ -349,7 +321,7 @@ static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struc
         i++;
     }
     x[i].index = -1;                    /* end of vectors? */
-    return predict(model_,x); /* run the predictor */
+    return predict(model_,x);           /* run the predictor */
 }
 
 
@@ -502,13 +474,14 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
 
 void sceadan_close(sceadan *s)
 {
+    memset(s,0,sizeof(*s));             /* clean object re-use */
     free(s);
 }
 
 int sceadan_classify_buf(sceadan *s,const uint8_t *buf,size_t bufsize)
 {
-    sceadan_vectors_t v; memset(&v,0,sizeof(v));
-
+    sceadan_vectors_t v;
+    memset(&v,0,sizeof(v));
     vectors_update (buf, bufsize, &v);
     vectors_finalize (&v);
     return predict_liblin (s->model,&v);
@@ -516,8 +489,8 @@ int sceadan_classify_buf(sceadan *s,const uint8_t *buf,size_t bufsize)
 
 int sceadan_classify_file(sceadan *s,const char *fname)
 {
-    struct sceadan_vectors v; memset(&v,0,sizeof(v));
-
+    struct sceadan_vectors v;
+    memset(&v,0,sizeof(v));
     const int fd = open(fname, O_RDONLY|O_BINARY);
     if (fd<0) return -1;                /* error condition */
     while (true) {
