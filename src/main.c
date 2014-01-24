@@ -43,7 +43,7 @@
 
 size_t block_factor = 0;
 
-static void do_output(const char *path,uint64_t offset,file_type_e file_type )
+static void do_output(const char *path,uint64_t offset,int file_type )
 {
     printf("%-10" PRId64 " %s # %s\n", offset,sceadan_name_for_type(file_type),path);
 }
@@ -82,9 +82,9 @@ static void process_file (const char path[])
 }
 
 
-static int ftw_callback( const char                fpath[],
+static int ftw_callback( const char fpath[],
                           const struct stat *const sb,
-                          const int                 typeflag )
+                          const int typeflag )
 {
     if(typeflag==FTW_F) process_file (fpath);
     return 0;
