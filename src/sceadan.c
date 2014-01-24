@@ -72,8 +72,8 @@
 #define n_unigram ((uint32_t) 1 << nbit_unigram) /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
 #define n_bigram  ((uint32_t) 1 << nbit_bigram)  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
 
-typedef uint8_t  unigram_t;             // unigram 
-typedef uint16_t bigram_t; /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
+typedef uint8_t  unigram_t;  // unigram 
+typedef uint16_t bigram_t;   /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
 
 
 /* low  ascii range is
@@ -348,7 +348,7 @@ static void vectors_update (const uint8_t buf[],
             unigram_t prev;
             unigram_t next;
 
-            if (ndx == 0 && sz_mod != 0) {
+            if (ndx == 0 && sz_mod != 0) { 
                 prev = v->last_val;
                 next = unigram;
 

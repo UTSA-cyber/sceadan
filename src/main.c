@@ -100,7 +100,12 @@ static void process_dir( const          char path[])
 void usage(void) __attribute__((noreturn));
 void usage()
 {
-    printf("usage: sceadan_app [options] inputfile [block factor]\n");
+    puts("usage: sceadan_app [options] inputfile [block factor]");
+    puts("where [options] are:");
+    puts("  -t <class>  - generate features for <class> and output to stdout");
+    puts("  -h          - generate help");
+    puts("");
+        
     exit(0);
 }
 
