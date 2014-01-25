@@ -478,7 +478,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 }
 
 
-static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struct feature_node *x )
+static int do_predict ( const struct model* model_ , const sceadan_vectors_t *v, struct feature_node *x )
 {
     int n;
     int nr_feature=get_nr_feature(model_);
@@ -515,6 +515,41 @@ static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struc
 }
 
 
+static void dump_vectors(const sceadan *s,const sceadan_vectors_t *v)
+{
+    printf("{ \"file_type\": %d,\n",s->file_type);
+    printf("  \"unigrams\": { \n");
+    int first = 1;
+    for(int i=0;i<n_unigram;i++){
+        if(v->ucv[i].avg>0){
+            if(first) {
+                first = 0;
+            } else {
+                printf(",\n");
+            }
+            printf("    \"%d\" : %.16lg",i,v->ucv[i].avg);
+        }
+    }
+    printf("  },\n");
+    printf("  \"bigrams:\": { \n");
+    first = 1;
+    for(int i=0;i<n_unigram;i++){
+        for(int j=0;j<n_unigram;j++){
+            if(v->bcv[i][j].avg>0){
+                if(first){
+                    first = 0;
+                } else {
+                    printf(",\n");
+                    first = 0;
+                }
+                printf("    \"%d\" : %.16lg",i<<8|j,v->bcv[i][j].avg);
+            }
+        }
+    }
+    printf("  }\n");
+    printf("}\n");
+}
+
 /* predict the vectors with a model and return the predicted type.
  * 
  * That is to handle vectors of too little or too much
@@ -523,27 +558,13 @@ static int do_predict ( const struct model* model_ , sceadan_vectors_t *v, struc
  * RANDOM. We consider those vectors abnormal and taken special care
  * of, instead of predicting. 
  */
-static int predict_liblin(const sceadan *s,sceadan_vectors_t *v)
+static int predict_liblin(const sceadan *s,const sceadan_vectors_t *v)
 {
     if(s->dump){                        /* dumping, not predicting */
-        printf("{ \"file_type\": %d,\n",s->file_type);
-        printf("  \"unigrams\": { \n");
-        for(int i=0;i<n_unigram;i++){
-            const char *comma = i>0 ? "," : "";
-            if(v->ucv[i].avg>0) printf("    %s%d : %.18lg\n",comma,i,v->ucv[i].avg);
-        }
-        printf("  },\n");
-        printf("  \"bigrams:\": { \n");
-        for(int i=0;i<n_unigram;i++){
-            for(int j=0;j<n_unigram;j++){
-                const char *comma = i>0 ? "," : "";
-                if(v->bcv[i][j].avg>0) printf("    %s%d : %.18lg\n",comma,i<<8|j,v->bcv[i][j].avg);
-            }
-        }
-        printf("  }\n");
-        printf("}\n");
+        dump_vectors(s,v);
         return 0;
     }
+
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
         return RAND;
     }
@@ -551,14 +572,20 @@ static int predict_liblin(const sceadan *s,sceadan_vectors_t *v)
     for (int i = 0; i < n_unigram; i++) {
         // TODO floating point comparison
         if (v->ucv[i].avg > UCV_CONST_THRESHOLD) {
-            v->mfv.const_chr[0] = i;
+            // previous programmer had an assignment here.
+            // but there is no need, and that makes v non-const
+            // slg
+            //v->mfv.const_chr[0] = i;       
             return UCV_CONST;
         }
         for (int j = 0; j < n_unigram; j++)
-            // TODO floating point comparison
+            // previous programmer had an assignment here.
+            // but there is no need, and that makes v non-const
+            // slg
+            //v->mfv.const_chr[0] = i;       
             if (v->bcv[i][j].avg > BCV_CONST_THRESHOLD) {
-                v->mfv.const_chr[0] = i;
-                v->mfv.const_chr[1] = j;
+                //v->mfv.const_chr[0] = i;
+                //v->mfv.const_chr[1] = j;
                 return BCV_CONST;
             }
     }
