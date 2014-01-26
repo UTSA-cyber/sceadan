@@ -175,11 +175,11 @@ typedef struct {
 
     /* Feature Name: Compressed item length - bzip2
        Description : Uses Burrows-Wheeler algorithm; effective, slow */
-    cv_e bzip2_len;
+    //cv_e bzip2_len;
 
     /* Feature Name: Compressed item length - LZW
        Description : Lempel-Ziv-Welch algorithm; fast */
-    cv_e lzw_len;
+    //cv_e lzw_len;
 
     /* Feature Name: Average contiguity between bytes
        Description : Average distance between consecutive byte values */
@@ -470,8 +470,8 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     v->mfv.stddev_byte_val.avg /= n_unigram;
     v->mfv.kurtosis            /= n_unigram;
     v->mfv.contiguity.avg      /= n_unigram;
-    v->mfv.bzip2_len.avg        = 1;
-    v->mfv.lzw_len.avg          = 1;
+    //v->mfv.bzip2_len.avg        = 1;
+    //v->mfv.lzw_len.avg          = 1;
     v->mfv.lo_ascii_freq.avg  = (double) v->mfv.lo_ascii_freq.tot  / v->mfv.uni_sz;
     v->mfv.med_ascii_freq.avg = (double) v->mfv.med_ascii_freq.tot / v->mfv.uni_sz;
     v->mfv.hi_ascii_freq.avg  = (double) v->mfv.hi_ascii_freq.tot  / v->mfv.uni_sz;
@@ -547,6 +547,25 @@ static void dump_vectors(const sceadan *s,const sceadan_vectors_t *v)
         }
     }
     printf("  }\n");
+#define OUTPUT(XXX) printf("  \"%s\": %.16lg,\n",#XXX,v->mfv.XXX)
+    OUTPUT(bigram_entropy);
+    OUTPUT(item_entropy);
+    OUTPUT(hamming_weight.avg);
+    OUTPUT(byte_value.avg);
+    OUTPUT(stddev_byte_val.avg);
+    OUTPUT(abs_dev);
+    OUTPUT(skewness);
+    OUTPUT(kurtosis);
+    OUTPUT(contiguity.avg);
+    OUTPUT( max_byte_streak.avg);
+    OUTPUT(lo_ascii_freq.avg);
+    OUTPUT(med_ascii_freq.avg);
+    OUTPUT(hi_ascii_freq.avg);
+    OUTPUT(byte_val_correlation);
+    OUTPUT(byte_val_freq_correlation);
+    OUTPUT(uni_chi_sq);
+    printf("  \"version\":1.0\n");
+
     printf("}\n");
 }
 
