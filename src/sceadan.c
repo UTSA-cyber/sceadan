@@ -76,41 +76,31 @@ typedef uint8_t  unigram_t;  // unigram
 typedef uint16_t bigram_t;   /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
 
 
-/* low  ascii range is
-   0x00 <= char < 0x20 */
+/* low  ascii range is  0x00 <= char < 0x20 */
 #define ASCII_LO_VAL (0x20)
 
-/* mid  ascii range is
-   0x20 <= char < 0x80 */
+/* mid  ascii range is  0x20 <= char < 0x80 */
 
-/* high ascii range is
-   0x80 <= char */
+/* high ascii range is   0x80 <= char */
 #define ASCII_HI_VAL (0x80)
 
 /* type for accumulators */
 typedef unsigned long long sum_t;
 
-/* type for summation/counting
-   followed by floating point ops */
+/* type for summation/counting followed by floating point ops */
 typedef union {
     sum_t  tot;
     double avg;
 } cv_e;
 
-/* unigram count vector
-   map unigram to count,
-   then to frequency
-   implements the probability distribution function for unigrams
-   TODO beware of overflow
-   more implementations */
+/* unigram count vector map unigram to count, then to frequency
+   implements the probability distribution function for unigrams TODO
+   beware of overflow more implementations */
 typedef cv_e ucv_t[n_unigram];
 
-/* bigram count vector
-   map bigram to count,
-   then to frequency
-   implements the probability distribution function for bigrams
-   TODO beware of overflow
-   more implementations */
+/* bigram count vector map bigram to count, then to frequency
+   implements the probability distribution function for bigrams TODO
+   beware of overflow more implementations */
 typedef cv_e bcv_t[n_unigram][n_unigram];
 
 typedef enum {
@@ -240,6 +230,7 @@ struct sceadan_vectors {
     mfv_t mfv;
     sum_t last_cnt;                     // for computing runs of characters
     uint8_t last_val;
+    const char *file_name;                  /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
 
@@ -333,9 +324,7 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 
 
 /* FUNCTIONS FOR VECTORS */
-static void vectors_update (const uint8_t buf[],
-                            const size_t sz,
-                            sceadan_vectors_t *v)
+static void vectors_update (const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
 {
     const int sz_mod = v->mfv.uni_sz % 2;
     for (int ndx = 0; ndx < sz; ndx++) {
@@ -515,9 +504,10 @@ static int do_predict ( const struct model* model_ , const sceadan_vectors_t *v,
 }
 
 
-static void dump_vectors(const sceadan *s,const sceadan_vectors_t *v)
+static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
 {
     printf("{ \"file_type\": %d,\n",s->file_type);
+    if(v->file_name) printf("  \"file_name\": \"%s\",\n",v->file_name);
     printf("  \"unigrams\": { \n");
     int first = 1;
     for(int i=0;i<n_unigram;i++){
@@ -580,7 +570,7 @@ static void dump_vectors(const sceadan *s,const sceadan_vectors_t *v)
 static int predict_liblin(const sceadan *s,const sceadan_vectors_t *v)
 {
     if(s->dump){                        /* dumping, not predicting */
-        dump_vectors(s,v);
+        dump_vectors_as_json(s,v);
         return 0;
     }
 
@@ -742,11 +732,12 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
     return predict_liblin(s,&v);
 }
 
-int sceadan_classify_file(const sceadan *s,const char *fname)
+int sceadan_classify_file(const sceadan *s,const char *file_name)
 {
     struct sceadan_vectors v;
     memset(&v,0,sizeof(v));
-    const int fd = open(fname, O_RDONLY|O_BINARY);
+    v.file_name = file_name;
+    const int fd = open(file_name, O_RDONLY|O_BINARY);
     if (fd<0) return -1;                /* error condition */
     while (true) {
         uint8_t    buf[BUFSIZ];
