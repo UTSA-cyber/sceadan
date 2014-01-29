@@ -1,0 +1,88 @@
+Wed Mar 28 16:33:24 2001 from 
+Posted by: marianne
+e-mail address: marianne.thrift@census.gov
+Server:  
+Type of error:  Other
+Description of Problem: OK this is a test.  
+Who is getting this form and returns a comment.
+
+
+
+Thu Mar 29 13:36:01 2001 from 
+Posted by: Van Hoang
+e-mail address: van.c.hoang@census.gov
+Server:  
+Type of error:  Other
+Description of Problem: this is just a test.
+
+Thu Mar 29 14:50:07 2001 from 
+Posted by: 
+Description of Problem: testing
+
+Thu Mar 29 14:51:12 2001 from 
+Posted by: 
+Server:  
+Description of Problem: testing
+
+Thu Mar 29 14:55:26 2001 from 
+Posted by: 
+Server:  
+Description of Problem: testing
+
+Thu Mar 29 14:57:47 2001 from 
+Posted by: 
+Server:  
+Description of Problem: testing
+
+Thu Mar 29 15:00:23 2001 from 
+Posted by: 
+Server:  
+Description of Problem: testing
+
+Thu Mar 29 15:01:01 2001 from 
+Posted by: 
+Server:  
+Description of Problem: testing
+
+Thu Mar 29 15:44:38 2001 from 
+Posted by: Van Hoang
+e-mail address: van.c.hoang@census.gov
+Server:  
+Type of error:  Other
+Description of Problem: Testing
+
+Fri Mar 30 09:43:29 2001 from 
+Posted by: Van Hoang
+e-mail address: van.c.hoang@census.gov
+Server:  
+Description of Problem: Testing
+
+Fri Mar 30 10:37:19 2001 from 
+Posted by: marianne
+e-mail address: marianne.thrift@census.gov
+Server:  
+Type of error:  Other
+Description of Problem: This is a test 3/29/01
+
+Wed Apr 18 11:00:19 2001 from 
+Posted by: Van Hoang
+e-mail address: van.c.hoang@census.gov
+Server:  
+Description of Problem: testing on ferret tabulation
+
+Thu Jun 14 18:00:33 2001 from 
+Posted by: marianne
+e-mail address: marianne.thrift@census.gov
+Server:  
+Description of Problem: LOVE LOVE the tabulation screen addition of the
+universe, weight, etc.
+
+Thanx Van et al.
+
+Mon Sep 10 10:13:44 2001 from 
+Posted by: marianne
+e-mail address: marianne.thrift@census.gov
+Server:  
+Description of Problem: SIPP 1996 wave 2 age race sex marital
+age 35-50, return 0's
+

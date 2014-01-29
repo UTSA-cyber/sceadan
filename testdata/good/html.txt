@@ -1,0 +1,37 @@
+<HTML>
+<HEAD>
+<TITLE>MRCE:Collections in Our Care: Closer Look</TITLE><script language=JavaScript src=http://www.nps.gov/pollscript/triggerParams.js></script><script language=JavaScript src=http://www.nps.gov/pollscript/poll_launcher.js></script><script language=JavaScript>callPoll();</script>
+</HEAD>
+<BODY BACKGROUND="../graphics/weave4.jpg" LINK=#226633 VLINK=#DD8822>
+
+
+<TABLE CELLSPACING=5>
+<TD VALIGN=TOP><TABLE BORDER><TD>
+<IMG SRC="../graphics/arho1640.jpg"></TD></TABLE></TD><TD VALIGN=TOP ALIGN=CENTER width=300><FONT SIZE=3><B>Collections in Our Care<BR><BR>ARLINGTON HOUSE COLLECTION<BR>
+<I>A Closer Look</I></B></CENTER>
+<HR WIDTH=300>
+
+<FONT SIZE=3><BR><B>ARHO1640: Chair</B><BR><BR>Chippendale, side; pierced and carved scrolled splat, cord and tassel, gadroon moulding at base of splat; shaped toprail with ascanthus leaves and shell; carved rolled side-scrolled ears, stop fluting on stiles; red damask slip seat; shaped seat rails, shells on front rail, cabriole forlegs, acanthus knees, ball and claw feet; plain legs and back feet.<BR><BR></FONT>
+
+<CENTER>
+<TABLE>
+<TABLE BORDER=2>
+<TD WIDTH=125 ALIGN=center> 
+<font size=2>
+<B><I><A HREF="collect.htm#arho">Return</A><I></B></TD>
+
+</FONT>
+</TD></TABLE></CENTER>
+<HR WIDTH=300>
+</TD></TABLE>
+
+
+<A HREF="http://www.nps.gov" TARGET="_top"><IMG SRC="../graphics/arrohdt.gif"></A><BR>
+<FONT SIZE=1>Last Updated:  June 5, 1997<BR>
+http://www.nps.gov/mrc/resource/varh1640.htm<BR>
+<A HREF="MAILTO:mrce@nps.gov">mrce@nps.gov</A>
+</FONT>
+</BODY>
+</HTML>
+
+

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<mods xmlns="http://www.loc.gov/mods/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!--0253-->
+
+<titleInfo>
+<title>In Memory</title>
+</titleInfo>
+<titleInfo type="alternative">
+<title>In Memory, Liz Wiemann, 2001 </title>
+</titleInfo>
+<name type="personal">
+<namePart>Wiemann, Liz</namePart>
+</name>
+<genre>Web Site</genre>
+<originInfo>
+<dateCaptured point="start" encoding="iso8601">20011023195701</dateCaptured>
+<dateCaptured point="end" encoding="iso8601">20011217200115</dateCaptured>
+</originInfo>
+<!--English => eng (English)-->
+
+<language authority="iso639-2b">eng</language>
+<physicalDescription>
+<internetMediaType>text/html</internetMediaType>
+</physicalDescription>
+<abstract>In Memory, a Web Site produced by Liz Wiemann, is part of the Library of Congress September 11 Web Archive and preserves the web expressions of individuals, groups, the press and institutions in the United States and from around the world in the aftermath of the attacks in the United States on September 11, 2001.</abstract>
+<subject>
+				
+<topic>September 11 Terrorist Attacks, 2001</topic>
+			
+</subject>
+<relatedItem type="host">
+<titleInfo>
+<title>September 11 Web Archive</title>
+</titleInfo>
+<identifier type="uri">http://www.loc.gov/minerva/collect/sept11/</identifier>
+</relatedItem>
+<identifier type="uri" displayLabel="Active site (if available)">attackonusa.f2s.com/</identifier>
+<identifier type="uri" displayLabel="Archived site">http://wasearch.loc.gov/sep11/2001*sa_/attackonusa.f2s.com/</identifier>
+<accessCondition>None</accessCondition>
+<recordInfo lang="eng">
+<recordCreationDate encoding="iso8601">20030915000000</recordCreationDate>
+<recordChangeDate encoding="iso8601">'20060717174614'</recordChangeDate>
+<recordIdentifier source="webarchivist">0253</recordIdentifier>
+</recordInfo>
+</mods>

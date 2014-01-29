@@ -1,0 +1,39 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:581: checking host system type
+configure:602: checking target system type
+configure:620: checking build system type
+configure:2697: checking for i686-pc-linux-gnu-ar
+configure:2730: checking for ar
+configure:2769: checking for i686-pc-linux-gnu-as
+configure:2802: checking for as
+configure:2841: checking for i686-pc-linux-gnu-dlltool
+configure:2874: checking for dlltool
+configure:2913: checking for i686-pc-linux-gnu-ld
+configure:2946: checking for ld
+configure:2985: checking for i686-pc-linux-gnu-nm
+configure:3018: checking for nm
+configure:3057: checking for i686-pc-linux-gnu-ranlib
+configure:3090: checking for ranlib
+configure:3129: checking for i686-pc-linux-gnu-windres
+configure:3162: checking for windres
+configure:3201: checking for i686-pc-linux-gnu-objcopy
+configure:3234: checking for objcopy
+configure:3273: checking for i686-pc-linux-gnu-objdump
+configure:3306: checking for objdump
+configure:3354: checking for i686-pc-linux-gnu-ar
+configure:3387: checking for ar
+configure:3426: checking for i686-pc-linux-gnu-as
+configure:3459: checking for as
+configure:3498: checking for i686-pc-linux-gnu-dlltool
+configure:3531: checking for dlltool
+configure:3570: checking for i686-pc-linux-gnu-ld
+configure:3603: checking for ld
+configure:3642: checking for i686-pc-linux-gnu-nm
+configure:3675: checking for nm
+configure:3714: checking for i686-pc-linux-gnu-ranlib
+configure:3747: checking for ranlib
+configure:3786: checking for i686-pc-linux-gnu-windres
+configure:3819: checking for windres
+configure:3886: checking whether to enable maintainer-specific portions of Makefiles
