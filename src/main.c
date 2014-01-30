@@ -62,28 +62,33 @@ static int process_file(const char path[],
             sceadan_dump_vectors_on_classify(s,opt_train,stdout);
         }
         
+        size_t read_size = block_factor;
+        if(read_size==0) read_size = 4096; /*  */
+
         /* Test the single-file classifier */
-        if(block_factor==0){
-            do_output(path,0,sceadan_classify_file(s,path));
-            sceadan_close(s);
-            return 0;
-        }
+        //if(block_factor==0){
+        //do_output(path,0,sceadan_classify_file(s,path));
+        //sceadan_close(s);
+        //return 0;
+        //}
         
         /* Test the incremental classifier */
         const int fd = open(path, O_RDONLY|O_BINARY);
         if (fd<0){perror("open");exit(0);}
-        uint8_t   *buf = malloc(block_factor);
+        uint8_t   *buf = malloc(read_size);
         if(buf==0){ perror("malloc"); exit(1); }
         
         /* Read the file one block at a time */
         uint64_t offset = 0;
         while(true){
-            const ssize_t rd = read (fd, buf, block_factor);
+            const ssize_t rd = read (fd, buf, read_size);
             if(rd==-1){ perror("read"); exit(0);}
             if(rd==0) break;
-            do_output(path,offset,sceadan_classify_buf(s,buf,rd));
+            sceadan_update(s,buf,rd);
+            if(block_factor!=0) do_output(path,offset,sceadan_classify(s));
             offset += rd;
         }
+        if(block_factor==0) do_output(path,offset,sceadan_classify(s));
         free(buf);
         sceadan_close(s);
     }

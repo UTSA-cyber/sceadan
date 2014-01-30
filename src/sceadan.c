@@ -117,7 +117,7 @@ typedef struct {
     unigram_t const_chr[2];
 
     /* size of item */
-    sum_t  uni_sz;
+    sum_t  uni_sz;                      /* number of unigrams */
     //sum_t  bi_sz;
 
     /*  Feature Name: Bi-gram Entropy
@@ -225,12 +225,12 @@ const char *sceadan_name_for_type(int i);
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
 struct sceadan_vectors {
-    ucv_t ucv;
-    bcv_t bcv;
-    mfv_t mfv;
-    sum_t last_cnt;                     // for computing runs of characters
-    uint8_t last_val;
-    const char *file_name;                  /* if the vectors came from a file, indicate it here */
+    ucv_t ucv;                          /* unigram statistics */
+    bcv_t bcv;                          /* bigram statistics */
+    mfv_t mfv;                          /* other statistics */
+    sum_t last_cnt;                     /* number of last_val's in previous block */
+    uint8_t last_val;                   /* last value from previous block */
+    const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
 
@@ -326,30 +326,51 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 /* FUNCTIONS FOR VECTORS */
 static void vectors_update (const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
 {
-    const int sz_mod = v->mfv.uni_sz % 2;
-    for (int ndx = 0; ndx < sz; ndx++) {
+    const int sz_mod = v->mfv.uni_sz % 2; 
+    for (size_t ndx = 0; ndx < sz; ndx++) {
 
         /* Compute the unigrams */
         const unigram_t unigram = buf[ndx];
         v->ucv[unigram].tot++;
 
+
+
+        /* Compute the bigrams */
         {
-            unigram_t prev;
-            unigram_t next;
+            unigram_t prev = v->last_val;
+            unigram_t next = unigram;
 
-            if (ndx == 0 && sz_mod != 0) { 
-                prev = v->last_val;
-                next = unigram;
-
+            if(ndx==0){
                 v->bcv[prev][next].tot++;
                 v->mfv.contiguity.tot += abs (next - prev);
-            } else if (ndx + 1 < sz) {
+            } else if (ndx+1 < sz){
                 prev = unigram;
-                next = buf[ndx + 1];
-                v->mfv.contiguity.tot += abs (next - prev);
-                if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;
+                next = buf[ndx+1];
+                v->mfv.contiguity.tot += abs (next - prev); 
+                if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
+
             }
         }
+
+#ifdef ORIG
+        {
+            unigram_t prev;                                                    
+            unigram_t next;                                                    
+
+            if (ndx == 0 && sz_mod != 0) {
+                prev = v->last_val;                                            
+                next = unigram;                                                
+
+                v->bcv[prev][next].tot++;                                      
+                v->mfv.contiguity.tot += abs (next - prev); 
+            } else if (ndx + 1 < sz) {
+                prev = unigram;                                                
+                next = buf[ndx + 1];                                           
+                v->mfv.contiguity.tot += abs (next - prev); 
+                if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
+            }
+        }
+#endif            
 
         // total count of set bits (for hamming weight)
         // this is wierd
@@ -361,13 +382,14 @@ static void vectors_update (const uint8_t buf[], const size_t sz, sceadan_vector
         // standard deviation of byte values
         v->mfv.stddev_byte_val.tot += __builtin_powi ((double) unigram, 2);
 
-        if (v->last_cnt != 0 && v->last_val == unigram) {
-            (v->last_cnt)++;
-        }
-        else {
-            v->last_cnt = 1;
+        /* Update the run counters */
+        if ((v->last_cnt > 0) && (v->last_val == unigram)){
+            v->last_cnt++;              /* run is extended */
+        } else {
+            v->last_cnt = 1;            /* new run */
             v->last_val = unigram;
         }
+
         v->mfv.max_byte_streak.tot = max (v->last_cnt, v->mfv.max_byte_streak.tot);
 
         // count of low ascii values
@@ -380,8 +402,8 @@ static void vectors_update (const uint8_t buf[], const size_t sz, sceadan_vector
         else {
             v->mfv.hi_ascii_freq.tot++;
         }
+        v->mfv.uni_sz ++;
     }
-    v->mfv.uni_sz += sz;
 }
 
 static void vectors_finalize ( sceadan_vectors_t *v)
@@ -714,27 +736,47 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
         return s;
     }
     s->model = sceadan_model_precompiled();
+    s->v = (sceadan_vectors_t *)calloc(sizeof(sceadan_vectors_t),1);
     return s;
 }
 
 void sceadan_close(sceadan *s)
 {
+    free(s->v);
     memset(s,0,sizeof(*s));             /* clean object re-use */
     free(s);
+}
+
+void sceadan_vectors_clear(sceadan *s)
+{
+    memset(s->v,0,sizeof(sceadan_vectors_t));
 }
 
 int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 {
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
-    vectors_update (buf, bufsize, &v);
+    vectors_update(buf, bufsize, &v);
     vectors_finalize(&v);
     return predict_liblin(s,&v);
 }
 
+void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
+{
+    vectors_update(buf, bufsize, s->v);
+}
+
+int sceadan_classify(sceadan *s)
+{
+    vectors_finalize(s->v);
+    int r = predict_liblin(s,s->v);
+    sceadan_vectors_clear(s);
+    return r;
+}
+
 int sceadan_classify_file(const sceadan *s,const char *file_name)
 {
-    struct sceadan_vectors v;
+    sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     v.file_name = file_name;
     const int fd = open(file_name, O_RDONLY|O_BINARY);
@@ -743,10 +785,9 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
         uint8_t    buf[BUFSIZ];
         const ssize_t rd = read (fd, buf, sizeof (buf));
         if(rd<=0) break;
-        vectors_update (buf, rd, &v);
+        vectors_update(buf,rd,&v);
     }
     if(close(fd)<0) return -1;
-    vectors_finalize(&v);
     return predict_liblin(s,&v);
 }
 

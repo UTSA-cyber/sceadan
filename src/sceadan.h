@@ -23,6 +23,7 @@ struct sceadan_t {
     const struct model *model;
     FILE *dump;
     int file_type;                    // when dumping
+    struct sceadan_vectors *v;
 };
 typedef struct sceadan_t sceadan;
 
@@ -32,6 +33,9 @@ void sceadan_model_dump(const struct model *); // to stdout
 sceadan *sceadan_open(const char *moden_name); // use 0 for default model precompiled
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
+void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);
+void sceadan_vectors_clear(sceadan *s);
+int sceadan_classify(sceadan *);
 int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
 int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(int);

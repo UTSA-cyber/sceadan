@@ -4,13 +4,15 @@ if [ x$srcdir == "x" ]; then
   srcdir=.
 fi
 
+bads=no
+
 doline() {
   while read line; do
     v1=`echo $line|awk '{print $2;}'`
-    v2=`echo $line|awk -F// '{print $2;}'|sed s/.txt//`
+    v2=`echo $line|sed 's:.*/::' | sed s/.txt//`
     if [ $v1 != $v2 ]; then
       echo bad line: $line
-      exit 1
+      bads=yes
     else
       echo good: $line
     fi
@@ -18,6 +20,10 @@ doline() {
 }
 
 
-./sceadan_app $srcdir/../testdata/good/ 0  | doline
+./sceadan_app $srcdir/../testdata/good 0  | doline
+
+if [ $bads != "no" ]; then
+  exit 1;
+fi  
 
 exit 0
