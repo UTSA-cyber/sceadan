@@ -20,7 +20,7 @@ doline() {
 }
 
 
-./sceadan_app $srcdir/../testdata/good 0  | doline
+./sceadan_app $srcdir/../testdata/good   | doline
 
 if [ $bads != "no" ]; then
   exit 1;
