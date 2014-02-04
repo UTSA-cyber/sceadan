@@ -489,8 +489,9 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 }
 
 
-static int do_predict ( const struct model* model_ , const sceadan_vectors_t *v, struct feature_node *x )
+static void build_nodes_from_vectors( const struct model* model_ , const sceadan_vectors_t *v, struct feature_node *x )
 {
+#if 0
     int n;
     int nr_feature=get_nr_feature(model_);
     if(model_->bias>=0){
@@ -498,6 +499,7 @@ static int do_predict ( const struct model* model_ , const sceadan_vectors_t *v,
     } else {
         n=nr_feature;
     }
+#endif
     
     int i = 0;
     
@@ -515,14 +517,13 @@ static int do_predict ( const struct model* model_ , const sceadan_vectors_t *v,
             i++;
         }
     
-    /* Add the Bias */
+    /* Add the Bias if we are using Bias */
     if(model_->bias>=0)    {
-        x[i].index = n;
+        x[i].index = get_nr_feature(model_)+1;
         x[i].value = model_->bias;
         i++;
     }
     x[i].index = -1;                    /* end of vectors? */
-    return predict(model_,x);           /* run the predictor */
 }
 
 
@@ -577,8 +578,16 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     OUTPUT(byte_val_freq_correlation);
     OUTPUT(uni_chi_sq);
     printf("  \"version\":1.0\n");
-
     printf("}\n");
+}
+
+static void dump_nodes(const sceadan *s,const struct feature_node *x,int max_nr_attr)
+{
+    fprintf(s->dump_nodes,"%d ",s->file_type);
+    for(int i=0;i<max_nr_attr;i++){
+        if(x[i].index && x[i].value>0) fprintf(s->dump_nodes,"%d:%g ",x[i].index,x[i].value);
+    }
+    fputc('\n',s->dump_nodes);
 }
 
 /* predict the vectors with a model and return the predicted type.
@@ -589,9 +598,9 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
  * RANDOM. We consider those vectors abnormal and taken special care
  * of, instead of predicting. 
  */
-static int predict_liblin(const sceadan *s,const sceadan_vectors_t *v)
+static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
 {
-    if(s->dump){                        /* dumping, not predicting */
+    if(s->dump_json){                        /* dumping, not predicting */
         dump_vectors_as_json(s,v);
         return 0;
     }
@@ -622,8 +631,18 @@ static int predict_liblin(const sceadan *s,const sceadan_vectors_t *v)
     }
     
     const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
-    struct feature_node *x = (struct feature_node *) malloc(max_nr_attr*sizeof(struct feature_node));
-    int ret = do_predict(s->model,v, x);
+    struct feature_node *x = (struct feature_node *) calloc(max_nr_attr,sizeof(struct feature_node));
+    build_nodes_from_vectors(s->model,v, x);
+    
+    if(s->dump_nodes){
+        dump_nodes(s,x,max_nr_attr);
+    } 
+
+    int ret = 0;
+
+    if(s->dump_nodes==0 && s->dump_json==0){
+        ret = predict(s->model,x);           /* run the liblinear predictor */
+    }
     free(x);
     return ret;
 }
@@ -758,7 +777,7 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
     memset(&v,0,sizeof(v));
     vectors_update(buf, bufsize, &v);
     vectors_finalize(&v);
-    return predict_liblin(s,&v);
+    return sceadan_predict(s,&v);
 }
 
 void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
@@ -769,7 +788,7 @@ void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
 int sceadan_classify(sceadan *s)
 {
     vectors_finalize(s->v);
-    int r = predict_liblin(s,s->v);
+    int r = sceadan_predict(s,s->v);
     sceadan_vectors_clear(s);
     return r;
 }
@@ -788,11 +807,17 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
         vectors_update(buf,rd,&v);
     }
     if(close(fd)<0) return -1;
-    return predict_liblin(s,&v);
+    return sceadan_predict(s,&v);
 }
 
-void sceadan_dump_vectors_on_classify(sceadan *s,int file_type,FILE *out)
+void sceadan_dump_json_on_classify(sceadan *s,int file_type,FILE *out)
 {
-    s->dump = out;
+    s->dump_json = out;
+    s->file_type = file_type;
+}
+
+void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
+{
+    s->dump_nodes = out;
     s->file_type = file_type;
 }

@@ -59,6 +59,7 @@
 /* Globals for the stand-alone program */
 
 size_t block_size = 512;
+int    opt_json = 0;
 int    opt_train = 0;
 int    opt_omit = 0;
 int    opt_each = 0;
@@ -75,11 +76,19 @@ static int process_file(const char path[],
                         const struct stat *const sb,
                         const int typeflag )
 {
+    int dumping = 0;
+
     if(typeflag==FTW_F){
         sceadan *s = sceadan_open(0);
         
+        if(opt_json){
+            sceadan_dump_json_on_classify(s,opt_json,stdout);
+            dumping = 1;
+        }
+
         if(opt_train){
-            sceadan_dump_vectors_on_classify(s,opt_train,stdout);
+            sceadan_dump_nodes_on_classify(s,opt_train,stdout);
+            dumping = 1;
         }
 
         /* Test the incremental classifier */
@@ -90,17 +99,25 @@ static int process_file(const char path[],
         
         /* Read the file one block at a time */
         uint64_t offset = 0;
+        
+        /* See if we are supposed to skip the first block */
+        if(opt_omit){
+            lseek(fd,block_size,SEEK_SET);
+            offset += block_size;
+        }
         while(true){
-            const ssize_t rd = read (fd, buf, block_size);
+            const ssize_t rd = read(fd, buf, block_size);
             if(rd==-1){ perror("read"); exit(0);}
-            if(rd==0) break;
-            if(opt_omit==0 || (offset>0 && rd==block_size)){
+            if(rd>0){
                 sceadan_update(s,buf,rd);
-                if(opt_each) do_output(path,offset,sceadan_classify(s));
             }
+            if((rd==0 && !opt_each) || (rd>0 && opt_each)){
+                int t = sceadan_classify(s);
+                if(!dumping) do_output(path,offset,t);
+            }
+            if(rd==0) break;
             offset += rd;
         }
-        if(!opt_each) do_output(path,offset,sceadan_classify(s));
         free(buf);
         sceadan_close(s);
     }
@@ -121,8 +138,9 @@ void usage()
     puts("where [options] are:");
     printf("  -b <size>   - specifies blocksize (default %zd)\n",block_size);
     printf("  -e          - print classification of each block\n");
-    printf("  -x          - omit file headers and footers\n");
-    printf("  -t <class>  - generate features for <class> and output to stdout\n");
+    printf("  -x          - omit file headers (the first block)\n");
+    printf("  -j <class>  - generate features for <class> and output in JSON format\n");
+    printf("  -t <class>  - generate a liblinear training for class <class>\n");
     printf("  -h          - generate help (-hh for more)\n");
     puts("");
     if(opt_help>1){
@@ -137,10 +155,11 @@ void usage()
 int main (int argc, char *const argv[])
 {
     int ch;
-    while((ch = getopt(argc,argv,"b:et:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:ej:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); break;
         case 'e': opt_each = 1;break;
+        case 'j': opt_json  = atoi(optarg); break;
         case 't': opt_train = atoi(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;

@@ -21,7 +21,8 @@ __BEGIN_DECLS
 
 struct sceadan_t {
     const struct model *model;
-    FILE *dump;
+    FILE *dump_json;
+    FILE *dump_nodes;
     int file_type;                    // when dumping
     struct sceadan_vectors *v;
 };
@@ -40,7 +41,8 @@ int sceadan_classify_file(const sceadan *,const char *fname);    // classify a f
 int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(int);
 void sceadan_close(sceadan *);
-void sceadan_dump_vectors_on_classify(sceadan *,int file_type,FILE *out); // dump vectors instead of classifying
+void sceadan_dump_json_on_classify(sceadan *,int file_type,FILE *out); // dump JSON vectors instead of classifying
+void sceadan_dump_nodes_on_classify(sceadan *,int file_type,FILE *out); // dump  vectors instead of classifying
 
 __END_DECLS
 
