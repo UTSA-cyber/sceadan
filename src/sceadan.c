@@ -220,7 +220,6 @@ struct sceadan_type_t {
 };
 
 extern struct sceadan_type_t sceadan_types[];
-const char *sceadan_name_for_type(int i);
 
 /* FUNCTIONS */
 // TODO full path vs relevant path may matter
@@ -316,6 +315,14 @@ const char *sceadan_name_for_type(int code)
         if(sceadan_types[i].code==code) return sceadan_types[i].name;
     }
     return(0);
+}
+
+int sceadan_type_for_name(const char *name)
+{
+    for(int i=0;sceadan_types[i].name!=0;i++){
+        if(strcmp(name,sceadan_types[i].name)==0) return sceadan_types[i].code;
+    }
+    return(-1);
 }
 
 static sum_t max ( const sum_t a, const sum_t b ) {
@@ -600,13 +607,15 @@ static void dump_nodes(const sceadan *s,const struct feature_node *x,int max_nr_
  */
 static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
 {
+    bool dumping = s->dump_nodes || s->dump_json;
+
     if(s->dump_json){                        /* dumping, not predicting */
         dump_vectors_as_json(s,v);
         return 0;
     }
 
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
-        return RAND;
+        if(!dumping) return RAND;
     }
     
     for (int i = 0; i < n_unigram; i++) {
@@ -616,7 +625,7 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
             // but there is no need, and that makes v non-const
             // slg
             //v->mfv.const_chr[0] = i;       
-            return UCV_CONST;
+            if(!dumping) return UCV_CONST;
         }
         for (int j = 0; j < n_unigram; j++)
             // previous programmer had an assignment here.
@@ -626,7 +635,7 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
             if (v->bcv[i][j].avg > BCV_CONST_THRESHOLD) {
                 //v->mfv.const_chr[0] = i;
                 //v->mfv.const_chr[1] = j;
-                return BCV_CONST;
+                if(!dumping) return BCV_CONST;
             }
     }
     
@@ -752,9 +761,9 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
             free(s);
             return 0;
         }
-        return s;
+    } else {
+        s->model = sceadan_model_precompiled();
     }
-    s->model = sceadan_model_precompiled();
     s->v = (sceadan_vectors_t *)calloc(sizeof(sceadan_vectors_t),1);
     return s;
 }

@@ -19,6 +19,9 @@
  * Revision History:
  *
  * 2014 - substantially rewritten by Simson L. Garfinkel
+ *        - Works with precompiled model (avoids model load times)
+ *        - Smaller, cleaner code base.
+ *        - sceadan now has a clear API that is separated from file-reading.
  * 
  * 2013 - cleaned by Lishu Liu, 
  *
@@ -64,6 +67,7 @@ int    opt_train = 0;
 int    opt_omit = 0;
 int    opt_each = 0;
 int    opt_help = 0;
+const char *opt_model = 0;
 
 static void do_output(const char *path,uint64_t offset,int file_type )
 {
@@ -72,27 +76,27 @@ static void do_output(const char *path,uint64_t offset,int file_type )
 
 
 
+/**
+ * ftw() callback to process a file. In this implementation it handles the file whole or block-by-block, prints
+ * results with do_output (above), and then returns.
+ */
 static int process_file(const char path[],
-                        const struct stat *const sb,
-                        const int typeflag )
+                        const struct stat *const sb, /* ignored */
+                        const int typeflag ) 
 {
-    int dumping = 0;
-
     if(typeflag==FTW_F){
-        sceadan *s = sceadan_open(0);
+        sceadan *s = sceadan_open(opt_model);
         
         if(opt_json){
             sceadan_dump_json_on_classify(s,opt_json,stdout);
-            dumping = 1;
         }
 
         if(opt_train){
             sceadan_dump_nodes_on_classify(s,opt_train,stdout);
-            dumping = 1;
         }
 
         /* Test the incremental classifier */
-        const int fd = open(path, O_RDONLY|O_BINARY);
+        const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
         if (fd<0){perror("open");exit(0);}
         uint8_t   *buf = malloc(block_size);
         if(buf==0){ perror("malloc"); exit(1); }
@@ -107,19 +111,30 @@ static int process_file(const char path[],
         }
         while(true){
             const ssize_t rd = read(fd, buf, block_size);
+            //fprintf(stderr,"fd=%d rd=%d each=%d\n",fd,rd,opt_each);
             if(rd==-1){ perror("read"); exit(0);}
+            /* if we read data, update the vectors */
             if(rd>0){
-                sceadan_update(s,buf,rd);
+                sceadan_update(s,buf,rd); 
             }
-            if((rd==0 && !opt_each) || (rd>0 && opt_each)){
+            /* Print the results if we are classifying each block and we read a complete block,
+             * or if we are not classifying each block and we read nothing (meaning we are at the end)
+             *
+             * sceadan_classify() clears the vectors.
+             */
+            if((opt_each && rd==block_size) ||
+               (!opt_each && rd==0)){
                 int t = sceadan_classify(s);
-                if(!dumping) do_output(path,offset,t);
+                /* print results if not dumping */
+                if(!opt_json && !opt_train) do_output(path,offset,t); 
             }
+            /* If we read nothing, break out of the loop */
             if(rd==0) break;
             offset += rd;
         }
         free(buf);
         sceadan_close(s);
+        if(fd) close(fd);
     }
     return 0;
 }
@@ -134,10 +149,12 @@ static void process_dir( const          char path[])
 void usage(void) __attribute__((noreturn));
 void usage()
 {
-    puts("usage: sceadan_app [options] inputfile [block factor]");
+    puts("usage: sceadan_app [options] inputfile");
     puts("where [options] are:");
+    printf("infile - file to analyze. Specify '-' to input from stdin\n");
     printf("  -b <size>   - specifies blocksize (default %zd)\n",block_size);
     printf("  -e          - print classification of each block\n");
+    printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
     printf("  -x          - omit file headers (the first block)\n");
     printf("  -j <class>  - generate features for <class> and output in JSON format\n");
     printf("  -t <class>  - generate a liblinear training for class <class>\n");
@@ -152,15 +169,26 @@ void usage()
     exit(0);
 }
 
+static int get_type(const char *name)
+{
+    int ival = atoi(name);
+    if(ival) return ival;
+    ival = sceadan_type_for_name(name);
+    if(ival>0) return ival;
+    fprintf(stderr,"%s: not a valid type name\n",name);
+    exit(1);
+}
+
 int main (int argc, char *const argv[])
 {
     int ch;
-    while((ch = getopt(argc,argv,"b:ej:t:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:ej:m:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); break;
         case 'e': opt_each = 1;break;
-        case 'j': opt_json  = atoi(optarg); break;
-        case 't': opt_train = atoi(optarg); break;
+        case 'j': opt_json  = get_type(optarg); break;
+        case 'm': opt_model = optarg; break;
+        case 't': opt_train = get_type(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;
         }
@@ -176,6 +204,10 @@ int main (int argc, char *const argv[])
     }
 
     if(argc != 1) usage();
+    if(strcmp(argv[0],"-")==0){         /* process stdin */
+        process_file("-",0,FTW_F);      /* FTW_F is not correct, but it works with process_file */
+    }
+
     const char *input_target = argv[0];
     process_dir(input_target); /* if input_target is a file, it will be handled as a file */
     exit(0);

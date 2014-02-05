@@ -260,7 +260,7 @@ class Worker(Thread):
 			(cexp,gexp,pexp) = self.job_queue.get()
 			if cexp is WorkerStopToken:
 				self.job_queue.put((cexp,gexp,pexp))
-				# print('worker {0} stop.'.format(self.name))
+				print('worker {0} stop.'.format(self.name))
 				break
 			try:
 				c, g, p = None, None, None

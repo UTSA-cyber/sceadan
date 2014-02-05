@@ -1,3 +1,7 @@
+2014-02-05  Simson Garfinkel  <simsong@mncrnpsedu.local>
+
+	* main.c (process_file): sceadan now reads from stdandard input if specified with '-'
+
 2014-01-23  Simson Garfinkel  <simsong@Dance.local>
 
 	* main.c (parse_args): removed init_defaults(); variables are now initialized when they are defined, rather than defined uninitialized and initialized in a function.

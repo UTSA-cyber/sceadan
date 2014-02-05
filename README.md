@@ -302,6 +302,14 @@ This version calculates bigram frequency vectors and bigram entropy without a 1-
 This version calculates hamming weight and entropy values incorrectly.  This has no impact on the default operation, since Sceadan does not use these features in this version's prediction model.
 
 
+Where to find things
+---
+You'll want to be familiar with:
+* http://www.csie.ntu.edu.tw/~cjlin/libsvm/ - libsvm - where we got a lot of the python training scripts from
+* http://www.csie.ntu.edu.tw/~cjlin/liblinear/ - liblinear - the upgrade to libsvm that trains in linear time
+
+
+
 Acknowledgments
 ----
 
