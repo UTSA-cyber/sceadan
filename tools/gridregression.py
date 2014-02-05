@@ -345,7 +345,7 @@ class TelnetWorker(Worker):
 		(idx,matchm,output) = self.tn.expect(['Cross.*\n'])
 		for line in output.split('\n'):
 			if str(line).find('Cross') != -1:
-				return float(line.split()[-1])
+				return float(line.split()[-1].strip('%'))/100
 			
 def find_parameters(dataset_pathname, options=''):
 	
