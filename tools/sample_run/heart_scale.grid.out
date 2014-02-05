@@ -1,0 +1,5 @@
+log2c=1.0 mse=1.0
+log2c=0.0 mse=1.0
+log2c=3.0 mse=1.0
+log2c=-1.0 mse=0.962963
+log2c=2.0 mse=1.0
