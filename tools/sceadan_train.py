@@ -2,6 +2,7 @@
 #
 # revised training and regression test for sceadan
 #
+
 def process(outfile,fn,fname,iszipfile=False):
     from subprocess import call,PIPE,Popen
     ftype = os.path.splitext(fname.lower())[1][1:]
@@ -16,6 +17,12 @@ def process(outfile,fn,fname,iszipfile=False):
     outfile.write(p1.communicate()[0].decode('utf-8'))
 
     
+def run_grid():
+    from distutils.spawn import find_executable
+    train = find_executable('train')
+    
+    
+
 if __name__=="__main__":
     import argparse,zipfile,os
     parser = argparse.ArgumentParser(description="Train sceadan from input files",

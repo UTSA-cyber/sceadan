@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+#
+# grid.py - train a SVM using grid search.
+#
+# Modification history:
+# 2014 - Updated to allow easy interoperability with liblinear and support multiple paths
+# 2012 - Initial Version
+
 __all__ = ['find_parameters']
 
 import os, sys, traceback, getpass, time, re
@@ -12,7 +19,6 @@ else:
 
 telnet_workers = []
 ssh_workers = []
-nr_local_worker = 1
 
 class GridOption:
     def __init__(self, dataset_pathname, options):
@@ -26,6 +32,7 @@ class GridOption:
             # svmtrain_pathname = r'c:\Program Files\libsvm\windows\svm-train.exe'
             self.gnuplot_pathname = r'c:\tmp\gnuplot\binary\pgnuplot.exe'
         self.fold = 5
+        self.nr_local_workers = 1
         self.c_begin, self.c_end, self.c_step = -5,  15,  2
         self.g_begin, self.g_end, self.g_step =  3, -15, -2
         self.grid_with_c, self.grid_with_g = True, True
@@ -56,8 +63,11 @@ class GridOption:
                     self.grid_with_g = False
                 else:
                     self.g_begin, self.g_end, self.g_step = map(float,options[i].split(','))
+            elif options[i] == '-j':
+                i += 1
+                self.nr_local_workers = int(options[i])
             elif options[i] == '-v':
-                i = i + 1
+                i += 1
                 self.fold = options[i]
             elif options[i] in ('-c','-g'):
                 raise ValueError('Use -log2c and -log2g.')
@@ -339,6 +349,7 @@ class TelnetWorker(Worker):
                 return float(line.split()[-1][0:-1])
             
 def find_parameters(dataset_pathname, options=''):
+    """ Search for parameters and then start the grid search """
     
     def update_param(c,g,rate,best_c,best_g,best_rate,worker,resumed):
         if (rate > best_rate) or (rate==best_rate and g==best_g and c<best_c):
@@ -411,7 +422,7 @@ def find_parameters(dataset_pathname, options=''):
 
     # fire local workers
 
-    for i in range(nr_local_worker):
+    for i in range(options.nr_local_worker):
         worker = LocalWorker('local',job_queue,result_queue,options)
         worker.start()
 
@@ -475,6 +486,7 @@ grid_options :
 -log2g {begin,end,step | "null"} : set the range of g (default 3,-15,-2)
     begin,end,step -- g_range = 2^{begin,...,begin+k*step,...,end}
     "null"         -- do not grid with g
+-j n : use n local workers (default 1)
 -v n : n-fold cross validation (default 5)
 -svmtrain pathname : set svm executable path and name
 -gnuplot {pathname | "null"} :

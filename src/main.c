@@ -69,9 +69,9 @@ int    opt_each = 0;
 int    opt_help = 0;
 const char *opt_model = 0;
 
-static void do_output(const char *path,uint64_t offset,int file_type )
+static void do_output(sceadan *s,const char *path,uint64_t offset,int file_type )
 {
-    printf("%-10" PRId64 " %s # %s\n", offset,sceadan_name_for_type(file_type),path);
+    printf("%-10" PRId64 " %s # %s\n", offset,sceadan_name_for_type(s,file_type),path);
 }
 
 
@@ -85,7 +85,7 @@ static int process_file(const char path[],
                         const int typeflag ) 
 {
     if(typeflag==FTW_F){
-        sceadan *s = sceadan_open(opt_model);
+        sceadan *s = sceadan_open(opt_model,0);
         
         if(opt_json){
             sceadan_dump_json_on_classify(s,opt_json,stdout);
@@ -126,7 +126,7 @@ static int process_file(const char path[],
                (!opt_each && rd==0)){
                 int t = sceadan_classify(s);
                 /* print results if not dumping */
-                if(!opt_json && !opt_train) do_output(path,offset,t); 
+                if(!opt_json && !opt_train) do_output(s,path,offset,t); 
             }
             /* If we read nothing, break out of the loop */
             if(rd==0) break;
@@ -162,9 +162,11 @@ void usage()
     puts("");
     if(opt_help>1){
         puts("Classes");
-        for(int i=0;sceadan_name_for_type(i);i++){
-            printf("\t%2d : %s\n",i,sceadan_name_for_type(i));
+        sceadan *s = sceadan_open(0,0);
+        for(int i=0;sceadan_name_for_type(s,i);i++){
+            printf("\t%2d : %s\n",i,sceadan_name_for_type(s,i));
         }
+        sceadan_close(s);
     }
     exit(0);
 }
@@ -173,7 +175,9 @@ static int get_type(const char *name)
 {
     int ival = atoi(name);
     if(ival) return ival;
-    ival = sceadan_type_for_name(name);
+    sceadan *s = sceadan_open(0,0);
+    ival = sceadan_type_for_name(s,name);
+    sceadan_close(s);
     if(ival>0) return ival;
     fprintf(stderr,"%s: not a valid type name\n",name);
     exit(1);

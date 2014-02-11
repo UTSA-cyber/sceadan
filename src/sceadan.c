@@ -243,84 +243,19 @@ typedef struct sceadan_vectors sceadan_vectors_t;
 #define BCV_CONST_THRESHOLD  (.5)       /* ignore BCV more than this */
 
 
-/* one of two master lists of types. This should be auto-generated from a file */
-struct sceadan_type_t sceadan_types[] = {
-    {0,"unclassified"},
-    {A85,"a85"},
-    {AES,"aes"},
-    {ASPX,"aspx"},
-    {AVI,"avi"},
-    {B16,"b16"},
-    {B64,"b64"},
-    {BCV_CONST,"bcv_const"},
-    {BMP,"bmp"},
-    {BZ2,"bz2"},
-    {CSS,"css"},
-    {CSV,"csv"},
-    {DLL,"dll"},
-    {DOC,"doc"},
-    {DOCX,"docx"},
-    {ELF,"elf"},
-    {EXE,"exe"},
-    {EXT3,"ext3"},
-    {FAT,"fat"},
-    {FLV,"flv"},
-    {GIF,"gif"},
-    {GZ,"gz"},
-    {HTML,"html"},
-    {JAR,"jar"},
-    {JAVA,"java"},
-    {JB2,"jb2"},
-    {JPG,"jpg"},
-    {JS,"js"},
-    {JSON,"json"},
-    {LOG,"log"},
-    {M4A,"m4a"},
-    {MOV,"mov"},
-    {MP3,"mp3"},
-    {MP4,"mp4"},
-    {NTFS,"ntfs"},
-    {PDF,"pdf"},
-    {PNG,"png"},
-    {PPS,"pps"},
-    {PPT,"ppt"},
-    {PPTX,"pptx"},
-    {PS,"ps"},
-    {PST,"pst"},
-    {RAND,"rand"},
-    {RPM,"rpm"},
-    {RTF,"rtf"},
-    {SWF,"swf"},
-    {TBIRD,"tbird"},
-    {TCV_CONST,"tcv_const"},
-    {TEXT,"txt"},
-    {TIF,"tif"},
-    {UCV_CONST,"ucv_const"},
-    {URL,"url"},
-    {WAV,"wav"},
-    {WMA,"wma"},
-    {WMV,"wmv"},
-    {XLS,"xls"},
-    {XLSX,"xlsx"},
-    {XML,"xml"},
-    {ZIP,"zip"},
-    {0,""}
-};
-
-
-
-const char *sceadan_name_for_type(int code)
+const char *sceadan_name_for_type(const sceadan *s,int code)
 {
-    for(int i=0;sceadan_types[i].name!=0;i++){
-        if(sceadan_types[i].code==code) return sceadan_types[i].name;
+    /* This may seem odd, but we don't know how long the array is */
+    for(int i=0;s->types[i];i++){
+        if(i==code) return s->types[i];
     }
     return(0);
 }
 
-int sceadan_type_for_name(const char *name)
+int sceadan_type_for_name(const sceadan *s,const char *name)
 {
-    for(int i=0;sceadan_types[i].name!=0;i++){
-        if(strcmp(name,sceadan_types[i].name)==0) return sceadan_types[i].code;
+    for(int i=0;s->types[i];i++){
+        if(strcmp(name,s->types[i])==0) return i;
     }
     return(-1);
 }
@@ -752,11 +687,23 @@ void sceadan_model_dump(const struct model *model)
 }
 
 
-sceadan *sceadan_open(const char *model_name) // use 0 for default model
+static const char *sceadan_map_precompiled[] =
+{"UNCLASSIFIED", "TEXT", "CSV", "LOG", "HTML", "XML", "ASPX", "JSON", "JS", "JAVA", 
+ "CSS", "B64", "A85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
+ "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
+ "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
+ "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FAT", "NTFS", "EXT3", "EXE",
+ "DLL", "ELF", "BMP", "AES", "RAND",  "PPS",
+ 0};
+
+/*
+ * Open another classifier, reading both a model and a map.
+ */
+sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for default model
 {
     sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
-    if(model_name){
-        s->model = load_model(model_name);
+    if(model_file){
+        s->model = load_model(model_file);
         if(s->model==0){
             free(s);
             return 0;
@@ -765,6 +712,12 @@ sceadan *sceadan_open(const char *model_name) // use 0 for default model
         s->model = sceadan_model_precompiled();
     }
     s->v = (sceadan_vectors_t *)calloc(sizeof(sceadan_vectors_t),1);
+    if(map_file){
+        assert(0);                      /* need to write this code */
+    } else {
+        s->types = sceadan_map_precompiled;
+    }
+
     return s;
 }
 
