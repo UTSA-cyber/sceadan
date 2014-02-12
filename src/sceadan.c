@@ -255,7 +255,7 @@ const char *sceadan_name_for_type(const sceadan *s,int code)
 int sceadan_type_for_name(const sceadan *s,const char *name)
 {
     for(int i=0;s->types[i];i++){
-        if(strcmp(name,s->types[i])==0) return i;
+        if(strcasecmp(name,s->types[i])==0) return i;
     }
     return(-1);
 }
