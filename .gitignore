@@ -56,3 +56,6 @@ test.sh.log
 test.sh.trs
 test-suite.log
 mcompile
+
+train_data/
+train_vectors/
