@@ -31,6 +31,7 @@ if __name__=="__main__":
     parser.add_argument('--blocksize',type=int,default=4096,help='blocksize for training.')
     parser.add_argument('--outfile',help='output file for combined vectors',default='vectors.train')
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
+    parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
     args = parser.parse_args()
 
     # First create vectors from the inputs. Store the results in outfile
