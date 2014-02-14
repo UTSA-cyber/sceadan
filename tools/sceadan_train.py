@@ -3,41 +3,60 @@
 # revised training and regression test for sceadan
 #
 
+ftype_equivs = {"jpeg":"jpg",
+                "dll":"exe"}
+
+
 import collections
 
-ftypecounts = collections.defaultdict(int)
+block_count = collections.defaultdict(int) # number of blocks of each file type
+file_count  = collections.defaultdict(int) # number of files of each file type
 
-def process(outfile,fn,fname,iszipfile=False):
+def ftype_from_name(fname):
+    ftype = os.path.splitext(fname)[1][1:].lower()
+    return ftype_equivs.get(ftype,ftype)
+
+def process(fn_source,fname,iszipfile=False):
+    """Process a file and return a list of the vectors"""
     from subprocess import call,PIPE,Popen
-    ftype = os.path.splitext(fname)[1][1:]
+    ftype = ftype_from_name(fname)
 
+    if iszipfile and ftype=='':
+        ftype = os.path.splitext(os.path.basename(fn_source))[0]
+
+    # See if we need more of this type
+    if block_count[ftype] > args.samples: return
 
     if iszipfile:
-        p0 = Popen(['unzip','-p',fn,fname],stdout=PIPE)
-        fin = p0.stdout
-        if ftype=='':                   # if not filetype, take from zipfile name
-            ftype = os.path.splitext(os.path.basename(fn))[0]
+        p0    = Popen(['unzip','-p',fn_source,fname],stdout=PIPE)
+        fin   = p0.stdout
+        fname = '-'             # read from stdin
+
     else:
-        fin = open(fn,'rb')
+        fin   = None
 
-    ftype = ftype.lower()
+    # Collect the data points
 
-    print("{}  {}...".format(fname,ftype),end="")
+    # At this point we have a stream(fin) and a type. See if we need to collect more
 
-    cmd = [args.exe,'-e','-b',str(args.blocksize),'-t',ftype,'-p',str(args.percentage),'-']
-    print("cmd="," ".join(cmd))
+    cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
     p1 = Popen(cmd,stdin=fin,stdout=PIPE)
-    res = p1.communicate()[0].decode('utf-8')
+    res          = p1.communicate()
+    vectors      = res[0].decode('utf-8').split('\n')
+    offsets      = res[1].decode('utf-8').split('\n')
+    assert(len(vectors)==len(offsets))
 
-    linecount = res.count('\n')
-    print("{}".format(linecount))
+    # Finally, add to the file
+    with open("train_vectors/"+ftype,"a") as f:
+        for (v,o) in zip(vectors,offsets):
+            try:
+                f.write("{}  # {}\n".format(v,o))
+                block_count[ftype] += 1
+            except OSError as e:
+                print("{} f.write error: {}".format(fname,str(e)))
 
-    ftypecounts[ftype] += linecount
-    try:
-        outfile.write(res)
-    except OSError:
-        print("res=",type(res))
-
+        file_count[ftype] += 1
+        print("{} {} {}".format(fname,ftype,vector_count))
     
 def run_grid():
     from distutils.spawn import find_executable
@@ -50,24 +69,39 @@ if __name__=="__main__":
     parser.add_argument('files',action='store',help='input files for training. May be ZIP archives',nargs='+')
     parser.add_argument('--blocksize',type=int,default=512,help='blocksize for training.')
     parser.add_argument('--outfile',help='output file for combined vectors',default='vectors.train')
+    parser.add_argument('--outdir',help='output dir for vector segments',default='vectors.train')
     parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
+    parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
     args = parser.parse_args()
 
     # First create vectors from the inputs. Store the results in outfile
 
     outfile = open(args.outfile,'w')
-    for fn in args.files:
+
+    def process_file(fn):
         if fn.lower().endswith('.zip'):
             z = zipfile.ZipFile(fn)
             for zfn in z.namelist():
                 if zfn.endswith("/"): continue
-                process(outfile,fn,zfn,iszipfile=True)
+                process(fn,zfn,iszipfile=True)
         else:
-            process(outfile,fn,fn,iszipfile=False)
+            process(fn,fn,iszipfile=False)
+
+    for fn in args.files:
+        if os.path.isfile(fn):
+            process_file(fn)
+            continue
+        if os.path.isdir(fn):
+            for (dirpath,dirnames,filenames) in os.walk(fn):
+                for filename in filenames:
+                    process_file(os.path.join(dirpath,filename))
+        
+        
+
     print("Counts of each block type:")
-    for (ftype,count) in sorted(ftypecounts.items()):
+    for (ftype,count) in sorted(block_count.items()):
         print("{:10} {:10}".format(ftype,count))
     
     outfile.close()

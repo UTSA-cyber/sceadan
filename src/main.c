@@ -67,7 +67,10 @@ int    opt_train = 0;
 int    opt_omit = 0;
 int    opt_blocks = 0;
 int    opt_help = 0;
+int    opt_preport  = 0;        /* report percentage sampled to pfd */
 int    opt_percentage = 100;
+int    opt_seed = 0;                    /* random number seed */
+
 const char *opt_model = 0;
 
 static void do_output(sceadan *s,const char *path,uint64_t offset,int file_type )
@@ -85,65 +88,81 @@ static int process_file(const char path[],
                         const struct stat *const sb, /* ignored */
                         const int typeflag ) 
 {
-    if(typeflag==FTW_F){
-        sceadan *s = sceadan_open(opt_model,0);
-        int training = 0;
-        
-        if(opt_json){
-            sceadan_dump_json_on_classify(s,opt_json,stdout);
-            training = 1;
-        }
-
-        if(opt_train){
-            sceadan_dump_nodes_on_classify(s,opt_train,stdout);
-            training = 1;
-        }
-
-        /* Test the incremental classifier */
-        const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
-        if (fd<0){perror("open");exit(0);}
-        uint8_t   *buf = malloc(block_size);
-        if(buf==0){ perror("malloc"); exit(1); }
-        
-        /* Read the file one block at a time */
-        uint64_t offset = 0;
-        
-        /* See if we are supposed to skip the first block */
-        if(opt_omit){
-            lseek(fd,block_size,SEEK_SET);
-            offset += block_size;
-        }
-        while(true){
-            const ssize_t rd = read(fd, buf, block_size);
-            if(rd==-1){ perror("read"); exit(0);}
-            /* if we read data, update the vectors */
-            if(rd>0){
-                sceadan_update(s,buf,rd); 
-            }
-            /* Print the results if we are classifying each block and we read a complete block,
-             * or if we are not classifying each block and we read nothing (meaning we are at the end)
-             *
-             * sceadan_classify() clears the vectors.
-             */
-            int process = (random() % 100) < opt_percentage;
-
-            if((opt_blocks && rd==block_size) ||
-               (!opt_blocks && rd==0)){
-
-                if(process){
-                    int t = sceadan_classify(s);
-                    uint64_t start  = opt_blocks ? offset : 0;
-                    if(!training) do_output(s,path,start,t); /* print results if not producing vectors for training*/
-                }
-            }
-            /* If we read nothing, break out of the loop */
-            if(rd==0) break;
-            offset += rd;
-        }
-        free(buf);
-        sceadan_close(s);
-        if(fd) close(fd);
+    if(typeflag!=FTW_F){
+        return 0;
     }
+
+    /* To get consistent random numbers, but random numbers that are different for every file,
+     * seed the random number generator and then exercise it a specific number of times that is
+     * determined by the file name.
+     */
+    if(opt_percentage!=100){
+        srandom(opt_seed);                  /*  */
+        for(int i=0;path[i];i++){
+            for(int j=0;j<path[i];j++){
+                random();
+            }
+        }
+    }
+
+    sceadan *s = sceadan_open(opt_model,0);
+    int training = 0;
+        
+    if(opt_json){
+        sceadan_dump_json_on_classify(s,opt_json,stdout);
+        training = 1;
+    }
+
+    if(opt_train){
+        sceadan_dump_nodes_on_classify(s,opt_train,stdout);
+        training = 1;
+    }
+
+    /* Test the incremental classifier */
+    const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
+    if (fd<0){perror("open");exit(0);}
+    uint8_t   *buf = malloc(block_size);
+    if(buf==0){ perror("malloc"); exit(1); }
+        
+    /* Read the file one block at a time */
+    uint64_t offset = 0;
+        
+    /* See if we are supposed to skip the first block */
+    if(opt_omit){
+        lseek(fd,block_size,SEEK_SET);
+        offset += block_size;
+    }
+    while(true){
+        const ssize_t rd = read(fd, buf, block_size);
+        if(rd==-1){ perror("read"); exit(0);}
+        /* if we read data, update the vectors */
+        if(rd>0){
+            sceadan_update(s,buf,rd); 
+        }
+        /* Print the results if we are classifying each block and we read a complete block,
+         * or if we are not classifying each block and we read nothing (meaning we are at the end)
+         *
+         * sceadan_classify() clears the vectors.
+         */
+
+        if((opt_blocks && rd==block_size) ||
+           (!opt_blocks && rd==0)){
+
+            int process_block = (random() % 100) < opt_percentage;
+            if(process_block){
+                int t = sceadan_classify(s);
+                uint64_t start  = opt_blocks ? offset : 0;
+                if(!training) do_output(s,path,start,t); /* print results if not producing vectors for training*/
+                if(opt_preport) fprintf(stderr,"%" PRIu64 "-%" PRIu64 "\n",offset,offset+rd);
+            }
+        }
+        /* If we read nothing, break out of the loop */
+        if(rd==0) break;
+        offset += rd;
+    }
+    free(buf);
+    sceadan_close(s);
+    if(fd) close(fd);
     return 0;
 }
 
@@ -153,33 +172,6 @@ static void process_dir( const          char path[])
     ftw (path, &process_file, FTW_MAXOPENFD);
 }
 
-
-void usage(void) __attribute__((noreturn));
-void usage()
-{
-    puts("usage: sceadan_app [options] inputfile");
-    puts("where [options] are:");
-    printf("infile - file to analyze. Specify '-' to input from stdin\n");
-    printf("  -b <size>   - specifies blocksize (default %zd)\n",block_size);
-    printf("  -e          - print classification of each block\n");
-    printf("  -j <class>  - generate features for <class> and output in JSON format\n");
-    printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
-    printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
-    printf("  -s N        - specifies a random number generator seed.\n");
-    printf("  -t <class>  - generate a liblinear training for class <class>\n");
-    printf("  -x          - omit file headers (the first block)\n");
-    printf("  -h          - generate help (-hh for more)\n");
-    puts("");
-    if(opt_help>1){
-        puts("Classes");
-        sceadan *s = sceadan_open(0,0);
-        for(int i=0;sceadan_name_for_type(s,i);i++){
-            printf("\t%2d : %s\n",i,sceadan_name_for_type(s,i));
-        }
-        sceadan_close(s);
-    }
-    exit(0);
-}
 
 static int get_type(const char *name)
 {
@@ -193,17 +185,49 @@ static int get_type(const char *name)
     exit(1);
 }
 
+void usage(void) __attribute__((noreturn));
+void usage()
+{
+    puts("usage: sceadan_app [options] inputfile");
+    puts("where [options] are:");
+    printf("infile - file to analyze. Specify '-' to input from stdin\n");
+    printf("for training:\n");
+    printf("  -j <class>  - generate features for <class> and output in JSON format\n");
+    printf("  -t <class>  - generate a liblinear training for class <class>\n");
+    printf("  -P          - report the blocks and byte ranges sampled to stderr\n");
+    printf("  -s N        - specifies a random number generator seed.\n");
+    printf("  -x          - omit file headers (the first block)\n");
+    printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
+
+    printf("\nfor classifying:\n");
+    printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
+    
+    printf("\ngeneral:\n");
+    printf("  -b <size>   - specifies blocksize (default %zd) for block-by-block classification.\n",block_size);
+    printf("  -h          - generate help (-hh for more)\n");
+    puts("");
+    if(opt_help>1){
+        puts("Classes");
+        sceadan *s = sceadan_open(0,0);
+        for(int i=0;sceadan_name_for_type(s,i);i++){
+            printf("\t%2d : %s\n",i,sceadan_name_for_type(s,i));
+        }
+        sceadan_close(s);
+    }
+    exit(0);
+}
+
 int main (int argc, char *const argv[])
 {
     int ch;
-    while((ch = getopt(argc,argv,"b:ej:m:p:r:t:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:ej:m:Pp:r:t:xh")) != -1){
         switch(ch){
-        case 'b': block_size = atoi(optarg); break;
-        case 'e': opt_blocks = 1;break;
+        case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
         case 'j': opt_json  = get_type(optarg); break;
         case 'm': opt_model = optarg; break;
+        case 'P': opt_preport = 1; break;
         case 'p': opt_percentage = atoi(optarg) ; break;
-        case 'r': srandom(atoi(optarg));break;
+        case 'r': opt_seed = atoi(optarg);break; /* seed the random number generator */
         case 't': opt_train = get_type(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;
@@ -224,7 +248,10 @@ int main (int argc, char *const argv[])
         process_file("-",0,FTW_F);      /* FTW_F is not correct, but it works with process_file */
     }
 
-    const char *input_target = argv[0];
-    process_dir(input_target); /* if input_target is a file, it will be handled as a file */
+    while(argc>0){
+        process_dir(*argv);
+        argc--;
+        argv++;
+    }
     exit(0);
 }
