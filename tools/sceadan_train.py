@@ -18,6 +18,15 @@ def ftype_from_name(fname):
 
 def process(fn_source,fname,iszipfile=False):
     """Process a file and return a list of the vectors"""
+
+    if os.path.basename(fn_source)[0:1]=='.':
+        print("Ignoring dot file",fn_source)
+        return
+
+    if os.path.getsize(fn_source) < args.minfilesize:
+        print("Ignoring small file",fn_source)
+        return
+
     from subprocess import call,PIPE,Popen
     ftype = ftype_from_name(fname)
 
@@ -40,14 +49,16 @@ def process(fn_source,fname,iszipfile=False):
     # At this point we have a stream(fin) and a type. See if we need to collect more
 
     cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
-    p1 = Popen(cmd,stdin=fin,stdout=PIPE)
+    p1 = Popen(cmd,stdin=fin,stdout=PIPE,stderr=PIPE)
     res          = p1.communicate()
+    if not res[0] and not res[1]:
+        return                  # no data, no problem (might be a sampling issue)
     vectors      = res[0].decode('utf-8').split('\n')
     offsets      = res[1].decode('utf-8').split('\n')
     assert(len(vectors)==len(offsets))
 
     # Finally, add to the file
-    with open("train_vectors/"+ftype,"a") as f:
+    with open(args.outdir+"/"+ftype,"a") as f:
         for (v,o) in zip(vectors,offsets):
             try:
                 f.write("{}  # {}\n".format(v,o))
@@ -56,7 +67,7 @@ def process(fn_source,fname,iszipfile=False):
                 print("{} f.write error: {}".format(fname,str(e)))
 
         file_count[ftype] += 1
-        print("{} {} {}".format(fname,ftype,vector_count))
+        print("{} {} {}".format(fname,ftype,block_count[ftype]))
     
 def run_grid():
     from distutils.spawn import find_executable
@@ -73,6 +84,7 @@ if __name__=="__main__":
     parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
+    parser.add_argument('--minfilesize',default=4096*2,type=int)
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
     args = parser.parse_args()
 
