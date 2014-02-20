@@ -299,9 +299,7 @@ class Worker(Thread):
 class LocalWorker(Worker):
     def run_one(self,c,g):
         cmdline = self.get_cmd(c,g)
-        print("cmdline:",cmdline)
         result = Popen(cmdline,shell=True,stdout=PIPE,stderr=PIPE,stdin=PIPE).stdout
-        print("result:",result)
         for line in result.readlines():
             if str(line).find('Cross') != -1:
                 return float(line.split()[-1][0:-1])
@@ -422,7 +420,7 @@ def find_parameters(dataset_pathname, options=''):
 
     # fire local workers
 
-    for i in range(options.nr_local_worker):
+    for i in range(options.nr_local_workers):
         worker = LocalWorker('local',job_queue,result_queue,options)
         worker.start()
 

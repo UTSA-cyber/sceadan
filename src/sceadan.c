@@ -62,7 +62,7 @@
 #define O_BINARY 0
 #endif
 
-#include "file_type.h"
+//#include "file_type.h"
 
 
 /* definitions. Some will be moved out of this file */
@@ -542,17 +542,20 @@ static void dump_nodes(const sceadan *s,const struct feature_node *x,int max_nr_
  */
 static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
 {
-    bool dumping = s->dump_nodes || s->dump_json;
+    //bool dumping = s->dump_nodes || s->dump_json;
 
     if(s->dump_json){                        /* dumping, not predicting */
         dump_vectors_as_json(s,v);
         return 0;
     }
 
+#if 0
     if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
         if(!dumping) return RAND;
     }
-    
+#endif    
+
+#if 0
     for (int i = 0; i < n_unigram; i++) {
         // TODO floating point comparison
         if (v->ucv[i].avg > UCV_CONST_THRESHOLD) {
@@ -573,6 +576,7 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
                 if(!dumping) return BCV_CONST;
             }
     }
+#endif
     
     const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
     struct feature_node *x = (struct feature_node *) calloc(max_nr_attr,sizeof(struct feature_node));

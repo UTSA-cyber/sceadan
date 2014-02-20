@@ -47,7 +47,7 @@ def process(fn_source,fname):
         print("Ignoring dot file",fn_source)
         return
 
-    if os.path.getsize(fn_source) < args.minfilesize:
+    if args.minfilesize and os.path.getsize(fn_source) < args.minfilesize:
         print("Ignoring small file",fn_source)
         return
 
@@ -55,7 +55,7 @@ def process(fn_source,fname):
     ftype = ftype_from_name(fname)
 
     # See if we need more of this type
-    if block_count[ftype] > args.samples: return
+    if block_count[ftype] > args.maxsamples: return
 
     # Collect the data points
 
@@ -71,6 +71,7 @@ def process(fn_source,fname):
     # Finally, add to the file
     with open(args.outdir+"/"+ftype,"a") as f:
         for (v,o) in zip(vectors,offsets):
+            if len(v)<5: continue # not possibly valid
             try:
                 f.write("{}  # {}\n".format(v,o))
                 block_count[ftype] += 1
@@ -85,7 +86,10 @@ def process_buf(outfile,fn,offset,bufsize):
     with open(fn,"rb") as fin:
         fin.seek(offset)
         buf = fin.read(bufsize)
-        p1 = Popen([args.exe,'-b',str(bufsize),'-t',ftype,'-'],stdin=fin,stdout=PIPE)
+        cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
+        if args.debug:
+            print(" ".join(cmd),file=sys.stderr)
+        p1 = Popen(cmd,stdin=fin,stdout=PIPE)
         outfile.write(p1.communicate()[0].decode('utf-8'))
 
 def run_grid():
@@ -109,6 +113,7 @@ def verify_extract(outfile,fn):
 
 if __name__=="__main__":
     import argparse,zipfile,os,time
+    t0 = time.time()
     parser = argparse.ArgumentParser(description="Train sceadan from input files",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('files',action='store',help='input files for training. May be ZIP archives',nargs='?')
@@ -119,8 +124,10 @@ if __name__=="__main__":
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--verify',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
-    parser.add_argument('--minfilesize',default=4096*2,type=int)
+    parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
+    parser.add_argument('--minfilesize',default=None,type=int)
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
+    parser.add_argument('--debug',action='store_true')
     args = parser.parse_args()
 
     t0 = time.time()
@@ -143,21 +150,19 @@ if __name__=="__main__":
         else:
             process(fn,fn,iszipfile=False)
 
-    for fn in args.files:
-        if os.path.isfile(fn):
-            process_file(fn)
-            continue
-        if os.path.isdir(fn):
-            for (dirpath,dirnames,filenames) in os.walk(fn):
-                for filename in filenames:
-                    process_file(os.path.join(dirpath,filename))
+    if args.files:
+        for fn in args.files:
+            if os.path.isfile(fn):
+                process_file(fn)
+                continue
+            if os.path.isdir(fn):
+                for (dirpath,dirnames,filenames) in os.walk(fn):
+                    for filename in filenames:
+                        process_file(os.path.join(dirpath,filename))
         
-    for fn in args.files:
-        process_file(outfile,fn)
-
     print("Counts of each block type:")
     for (ftype,count) in sorted(block_count.items()):
         print("{:10} {:10}".format(ftype,count))
     
     outfile.close()
-    print("elapsed time: {}".format(time.time()-t0))
+    print("Elapsed time: {:.2} seconds".format(time.time()-t0))

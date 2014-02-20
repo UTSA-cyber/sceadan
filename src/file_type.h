@@ -1,3 +1,4 @@
+#error this file is not used any more
 #ifndef FILE_TYPE_H
 #define FILE_TYPE_H
 /* data types - NOTE extensions should not be case-sensitive */
