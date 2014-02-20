@@ -19,11 +19,18 @@ file_count  = collections.defaultdict(int) # number of files of each file type
 
 
 ftype_equivs = {"JPEG":"JPG",
-                "DLL":"EXE"}
+                "DLL":"EXE",
+                "TXT":"TEXT",
+                "TIFF":"TIF",
+                "MSF":"TBIRD",
+                "URLENCODED":"URL"}
 
-between = re.compile("/(.*)/")
+between = re.compile(".*/([^/]*)/")
 def get_ftype(fn):
     ftype = os.path.splitext(fn.upper())[1][1:]
+    if ftype.endswith("_INBOX"): ftype="TBIRD"
+    if ftype.endswith("_TRASH"): ftype="TBIRD"
+    if ftype.endswith("_SENT"): ftype="TBIRD"
     if ftype=="":
         m = between.search(fn)
         ftype=m.group(1)
@@ -82,6 +89,9 @@ def process(fn_source,fname):
         print("{} {} {}".format(fname,ftype,block_count[ftype]))
     
 def process_buf(outfile,fn,offset,bufsize):
+    if args.skip:
+        args.skip -= 1
+        return
     ftype = get_ftype(fn)
     with open(fn,"rb") as fin:
         cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
@@ -96,7 +106,6 @@ def process_buf(outfile,fn,offset,bufsize):
         vectors = res[0].decode('utf-8')
         outfile.write(vectors)
         block_count[ftype] += 1
-        print("len(vectors)=",len(vectors),"filesize:",os.path.getsize(args.outfile))
 
 def run_grid():
     from distutils.spawn import find_executable
@@ -117,7 +126,7 @@ def verify_extract(outfile,fn):
         BLOCKSIZE = 512
         process_buf(outfile,fn,int(offset)*BLOCKSIZE,BLOCKSIZE)
         count += 1
-        if count%1==0:
+        if count%1000==0:
             print("Processed {:,} blocks".format(count))
         
 
@@ -138,6 +147,7 @@ if __name__=="__main__":
     parser.add_argument('--minfilesize',default=None,type=int)
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
     parser.add_argument('--debug',action='store_true')
+    parser.add_argument('--skip',type=int,help='Skip this many records (for testing)')
     args = parser.parse_args()
 
     t0 = time.time()
@@ -171,4 +181,4 @@ if __name__=="__main__":
         print("{:10} {:10}".format(ftype,count))
     
     outfile.close()
-    print("Elapsed time: {:.2} seconds".format(time.time()-t0))
+    print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
