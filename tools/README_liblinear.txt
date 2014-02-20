@@ -20,7 +20,7 @@ Usage: subset.py [options] dataset number [output1] [output2]
 This script selects a subset of the given data set.
 
 options:
--s method : method of selection (default 0)
+  -s method : method of selection (default 0)
      0 -- stratified selection (classification only)
      1 -- random selection
 
@@ -42,7 +42,6 @@ Part II: Parameter Selection Tools
 
 Introduction
 ============
-
 grid.py is a parameter selection tool for C-SVM classification using
 the RBF (radial basis function) kernel. It uses cross validation (CV)
 technique to estimate the accuracy of each parameter combination in
