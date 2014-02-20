@@ -14,7 +14,7 @@ typedef enum {
 	JAVA = 9, 	/* file type description: Java Source Code file extensions: .java */
 	CSS = 10, 	/* file type description: css file extensions: .css */
 	B64 = 11, 	/* file type description: Base64 encoding file extensions: .b64 */
-	A85 = 12, 	/* file type description: Base85 encoding file extensions: .a85 */
+	B85 = 12, 	/* file type description: Base85 encoding file extensions: .a85 */
 	B16 = 13, 	/* file type description: Hex encoding file extensions: .b16 */
 	URL = 14, 	/* file type description: URL encoding file extensions: .urlencoded */
 	PS = 15, 	/* file type description: Postscript file extensions: .ps */

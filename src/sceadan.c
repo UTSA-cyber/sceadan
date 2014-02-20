@@ -689,10 +689,10 @@ void sceadan_model_dump(const struct model *model)
 
 static const char *sceadan_map_precompiled[] =
 {"UNCLASSIFIED", "TEXT", "CSV", "LOG", "HTML", "XML", "ASPX", "JSON", "JS", "JAVA", 
- "CSS", "B64", "A85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
+ "CSS", "B64", "B85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
  "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
  "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
- "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FAT", "NTFS", "EXT3", "EXE",
+ "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FS-FAT", "FS-NTFS", "FS-EXT", "EXE",
  "DLL", "ELF", "BMP", "AES", "RAND",  "PPS",
  0};
 
