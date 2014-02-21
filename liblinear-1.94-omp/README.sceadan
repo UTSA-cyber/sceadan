@@ -1,0 +1,1 @@
+Patched to include OpenMP #pragma per http://www.csie.ntu.edu.tw/~cjlin/liblinear/FAQ.html#how_to_speedup_multiclass_classification_using_openmp
