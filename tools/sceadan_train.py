@@ -14,13 +14,23 @@ from subprocess import call,PIPE,Popen
 import re
 import collections
 
+block_count = collections.defaultdict(int) # number of blocks of each file type
+file_count  = collections.defaultdict(int) # number of files of each file type
+
 
 ftype_equivs = {"JPEG":"JPG",
-                "DLL":"EXE"}
+                "DLL":"EXE",
+                "TXT":"TEXT",
+                "TIFF":"TIF",
+                "MSF":"TBIRD",
+                "URLENCODED":"URL"}
 
-between = re.compile("/(.*)/")
+between = re.compile(".*/([^/]*)/")
 def get_ftype(fn):
     ftype = os.path.splitext(fn.upper())[1][1:]
+    if ftype.endswith("_INBOX"): ftype="TBIRD"
+    if ftype.endswith("_TRASH"): ftype="TBIRD"
+    if ftype.endswith("_SENT"): ftype="TBIRD"
     if ftype=="":
         m = between.search(fn)
         ftype=m.group(1)
@@ -32,9 +42,6 @@ def process_file(outfile,fn):
     fin = open(fn,'rb')
     p1 = Popen([args.exe,'-b',str(args.blocksize),'-t',ftype,'-'],stdin=fin,stdout=PIPE)
     outfile.write(p1.communicate()[0].decode('utf-8'))
-
-block_count = collections.defaultdict(int) # number of blocks of each file type
-file_count  = collections.defaultdict(int) # number of files of each file type
 
 def ftype_from_name(fname):
     ftype = os.path.splitext(fname)[1][1:].lower()
@@ -82,15 +89,23 @@ def process(fn_source,fname):
         print("{} {} {}".format(fname,ftype,block_count[ftype]))
     
 def process_buf(outfile,fn,offset,bufsize):
+    if args.skip:
+        args.skip -= 1
+        return
     ftype = get_ftype(fn)
     with open(fn,"rb") as fin:
-        fin.seek(offset)
-        buf = fin.read(bufsize)
         cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
         if args.debug:
+            print(fn)
             print(" ".join(cmd),file=sys.stderr)
-        p1 = Popen(cmd,stdin=fin,stdout=PIPE)
-        outfile.write(p1.communicate()[0].decode('utf-8'))
+        p1 = Popen(cmd,stdin=PIPE,stdout=PIPE)
+        fin.seek(offset)
+        p1.stdin.write(fin.read(bufsize))
+        fin.close()
+        res = p1.communicate()
+        vectors = res[0].decode('utf-8')
+        outfile.write(vectors)
+        block_count[ftype] += 1
 
 def run_grid():
     from distutils.spawn import find_executable
@@ -99,6 +114,7 @@ def run_grid():
 def verify_extract(outfile,fn):
     dname = os.path.dirname(fn)
     alerted = set()
+    count = 0
     for line in open(fn):
         (path,offset) = line.strip().split('\t')
         fn = os.path.join(dname,path)
@@ -109,6 +125,9 @@ def verify_extract(outfile,fn):
             continue
         BLOCKSIZE = 512
         process_buf(outfile,fn,int(offset)*BLOCKSIZE,BLOCKSIZE)
+        count += 1
+        if count%1000==0:
+            print("Processed {:,} blocks".format(count))
         
 
 if __name__=="__main__":
@@ -128,6 +147,7 @@ if __name__=="__main__":
     parser.add_argument('--minfilesize',default=None,type=int)
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
     parser.add_argument('--debug',action='store_true')
+    parser.add_argument('--skip',type=int,help='Skip this many records (for testing)')
     args = parser.parse_args()
 
     t0 = time.time()
@@ -136,11 +156,7 @@ if __name__=="__main__":
     if args.verify:
         verify_extract(outfile,args.verify)
 
-
     # First create vectors from the inputs. Store the results in outfile
-
-    outfile = open(args.outfile,'w')
-
     def process_file(fn):
         if fn.lower().endswith('.zip'):
             z = zipfile.ZipFile(fn)
@@ -165,4 +181,4 @@ if __name__=="__main__":
         print("{:10} {:10}".format(ftype,count))
     
     outfile.close()
-    print("Elapsed time: {:.2} seconds".format(time.time()-t0))
+    print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
