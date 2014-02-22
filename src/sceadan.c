@@ -62,9 +62,6 @@
 #define O_BINARY 0
 #endif
 
-//#include "file_type.h"
-
-
 /* definitions. Some will be moved out of this file */
 
 #define nbit_unigram (8)                // bits in a unigram
