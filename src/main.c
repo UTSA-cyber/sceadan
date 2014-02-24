@@ -121,7 +121,7 @@ static int process_file(const char path[],
     /* Test the incremental classifier */
     const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
     if (fd<0){perror("open");exit(0);}
-    uint8_t   *buf = malloc(block_size);
+    uint8_t   *buf = (uint8_t *)malloc(block_size);
     if(buf==0){ perror("malloc"); exit(1); }
         
     /* Read the file one block at a time */

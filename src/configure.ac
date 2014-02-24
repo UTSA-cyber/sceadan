@@ -16,6 +16,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
+AC_PROG_CC_C99                  dnl please use C99
 
 m4_include([m4/slg_searchdirs.m4])
 m4_include([m4/gcc_all_warnings.m4])

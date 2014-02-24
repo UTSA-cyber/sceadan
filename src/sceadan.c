@@ -37,6 +37,8 @@
  */
 
 #include "config.h"
+#include "sceadan.h"
+
 #include <assert.h>
 #include <ftw.h>
 #include <stdbool.h>
@@ -229,9 +231,6 @@ struct sceadan_vectors {
     const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
-
-#include "sceadan.h"
-
 
 #define MODEL ("model")                 /* default model file */
 

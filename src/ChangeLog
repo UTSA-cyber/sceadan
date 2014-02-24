@@ -1,3 +1,7 @@
+2014-02-24  Basic  <simsong@r4.ncr.nps.edu>
+
+	* sceadan.c: added <stdint.h>
+
 2014-02-05  Simson Garfinkel  <simsong@mncrnpsedu.local>
 
 	* main.c (process_file): sceadan now reads from stdandard input if specified with '-'
