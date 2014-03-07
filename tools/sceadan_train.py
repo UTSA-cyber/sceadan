@@ -25,17 +25,10 @@ ftype_equivs = {"JPEG":"JPG",
                 "MSF":"TBIRD",
                 "URLENCODED":"URL"}
 
-between = re.compile(".*/([^/]*)/")
 def get_ftype(fn):
+    ftype = os.path.basename(os.path.dirname(fn))
+    if ftype: return ftype.upper()
     ftype = os.path.splitext(fn.upper())[1][1:]
-    if ftype.endswith("_INBOX"): ftype="TBIRD"
-    if ftype.endswith("_TRASH"): ftype="TBIRD"
-    if ftype.endswith("_SENT"): ftype="TBIRD"
-    if ftype=="":
-        m = between.search(fn)
-        if not m:
-            return ""
-        ftype=m.group(1)
     return ftype_equivs.get(ftype,ftype)
     
 def train_file(fname):
@@ -63,8 +56,6 @@ def train_file(fname):
         print(offsets)
         return
 
-    print("vectors=",vectors)
-    print("offsets=",offsets)
     assert(len(vectors)==len(offsets))
     
     # Finally, add to the file
@@ -147,7 +138,7 @@ def run_grid():
     from distutils.spawn import find_executable
     train = find_executable('train')
     
-def verify_extract(fn):
+def train_extractlog(fn):
     dname = os.path.dirname(fn)
     alerted = set()
     count = 0
@@ -165,20 +156,24 @@ def verify_extract(fn):
         if count%1000==0:
             print("Processed {:,} blocks".format(count))
         
+help_text="""
+Train sceadan from input files. File type
+is determined by the containing directory name. If there is no containing directory
+file type is determined by extension."""
+
 if __name__=="__main__":
     import argparse,zipfile,os,time
     t0 = time.time()
-    parser = argparse.ArgumentParser(description="Train sceadan from input files",
+    parser = argparse.ArgumentParser(description=help_text,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('files',
-                        action='store',help='input files for training. May be ZIP archives',nargs='+')
+    parser.add_argument('files',action='store',help="input files or directories for training. ",nargs='+')
     parser.add_argument('--blocksize',type=int,default=4096,help='blocksize for training.')
     parser.add_argument('--outfile',help='output file for combined vectors',default='vectors.train')
     parser.add_argument('--outdir',help='output dir for vector segments',default='vectors.train')
     parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
-    parser.add_argument('--verify',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
+    parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
     parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--minfilesize',default=None,type=int)
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
@@ -191,8 +186,8 @@ if __name__=="__main__":
     t0 = time.time()
     outfile = open(args.outfile,'w')
 
-    if args.verify:
-        verify_extract(args.verify)
+    if args.extractlog:
+        train_extractlog(args.extractlog)
 
     if args.files:
         if args.confusion:

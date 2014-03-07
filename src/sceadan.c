@@ -58,6 +58,7 @@
 #include <liblinear/linear.h>
 #endif
 
+#ifdef HAVE_LIBLINEAR
 
 
 #ifndef O_BINARY
@@ -696,11 +697,17 @@ static const char *sceadan_map_precompiled[] =
  "DLL", "ELF", "BMP", "AES", "RAND",  "PPS",
  0};
 
+#else
+#warn Sceadan requires LIBLINEAR
+#endif  /* HAVE_LIBLINEAR */
+
+
 /*
  * Open another classifier, reading both a model and a map.
  */
 sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for default model
 {
+#ifdef HAVE_LIBLINEAR
     sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
     if(model_file){
         s->model = load_model(model_file);
@@ -717,46 +724,63 @@ sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for 
     } else {
         s->types = sceadan_map_precompiled;
     }
-
     return s;
+#else
+    return 0;                           /* no liblinear */
+#endif
 }
 
 void sceadan_close(sceadan *s)
 {
+#ifdef HAVE_LIBLINEAR
     free(s->v);
     memset(s,0,sizeof(*s));             /* clean object re-use */
     free(s);
+#endif
 }
 
 void sceadan_vectors_clear(sceadan *s)
 {
+#ifdef HAVE_LIBLINEAR
     memset(s->v,0,sizeof(sceadan_vectors_t));
+#endif
 }
 
 int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 {
+#ifdef HAVE_LIBLINEAR
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     vectors_update(buf, bufsize, &v);
     vectors_finalize(&v);
     return sceadan_predict(s,&v);
+#else
+    return -1;
+#endif
 }
 
 void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
 {
+#ifdef HAVE_LIBLINEAR
     vectors_update(buf, bufsize, s->v);
+#endif
 }
 
 int sceadan_classify(sceadan *s)
 {
+#ifdef HAVE_LIBLINEAR
     vectors_finalize(s->v);
     int r = sceadan_predict(s,s->v);
     sceadan_vectors_clear(s);
     return r;
+#else
+    return -1;
+#endif
 }
 
 int sceadan_classify_file(const sceadan *s,const char *file_name)
 {
+#ifdef HAVE_LIBLINEAR
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     v.file_name = file_name;
@@ -770,16 +794,23 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
     }
     if(close(fd)<0) return -1;
     return sceadan_predict(s,&v);
+#else
+    return -1;
+#endif
 }
 
 void sceadan_dump_json_on_classify(sceadan *s,int file_type,FILE *out)
 {
+#ifdef HAVE_LIBLINEAR
     s->dump_json = out;
     s->file_type = file_type;
+#endif
 }
 
 void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
 {
+#ifdef HAVE_LIBLINEAR
     s->dump_nodes = out;
     s->file_type = file_type;
+#endif
 }
