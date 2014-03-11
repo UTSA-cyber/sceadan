@@ -1,0 +1,9 @@
+Notes on improving performance:
+
+* Liblinear can run with OpenMP
+  http://www.csie.ntu.edu.tw/~cjlin/liblinear/FAQ.html#how_to_speedup_multiclass_classification_using_openmp
+
+
+http://openmp.org/wp/openmp-compilers/
+
+Look at openmp_test.c

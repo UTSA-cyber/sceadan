@@ -60,3 +60,4 @@ mcompile
 train_data/
 train_vectors/
 .dirstamp
+*~
