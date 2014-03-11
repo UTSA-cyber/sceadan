@@ -131,7 +131,6 @@ This version was statistically trained to identify 48 of the following file/data
 	ELF = 51, /* file type description: Linux Executables file extensions: .elf */
 	BMP = 52, /* file type description: Bitmap file extensions: .bmp */
 	
-
 This version of Sceadan detects the following types by rule or pattern:
 	
 - Random 
