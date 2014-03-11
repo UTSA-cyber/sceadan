@@ -61,3 +61,5 @@ train_data/
 train_vectors/
 .dirstamp
 *~
+DATA/
+dist/
