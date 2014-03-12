@@ -1,7 +1,7 @@
 # http://docs.python.org/3.3/library/multiprocessing.html
 # http://stackoverflow.com/questions/14592531/threading-in-python-doesnt-happen-parallel/14594205
 
-from multiprocessing.dummy import Pool
+from multiprocessing import Pool
 
 def generate_data(): # generate some dummy urls
     for i in range(1000):

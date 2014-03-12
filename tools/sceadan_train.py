@@ -9,10 +9,9 @@
 # 2014-02-19 - removed automated handling of ZIP files; it slowed things down and seeking was hard.
 #            - Provided support for reading an extract.out file         
 
-import sys
+import sys,re,os,collections,random,multiprocessing
 from subprocess import call,PIPE,Popen
-import re
-import collections
+from ttable import ttable
 
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
@@ -116,9 +115,6 @@ def confusion_files():
 
 
 def train_buf(outfile,fn,offset,bufsize):
-    if args.skip:
-        args.skip -= 1
-        return
     ftype = get_ftype(fn)
     with open(fn,"rb") as fin:
         cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
@@ -156,6 +152,144 @@ def train_extractlog(fn):
         if count%1000==0:
             print("Processed {:,} blocks".format(count))
         
+################################################################
+## Sample Selection
+################################################################
+
+def filetypes():
+    """Returns a list of the filetypes"""
+    return [fn for fn in os.listdir(args.data) if os.path.isdir(os.path.join(args.data,fn))]
+
+def ftype_files(ftype):
+    """Returns a list of the pathnames for a give filetype in the training set"""
+    ftypedir = os.path.join(args.data,ftype)
+    return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir)]
+
+def blocks_in_file(fn):
+    """ Return the number of blocks in a given file """
+    return os.path.getsize(fn)//args.blocksize
+
+def blocks_in_files(fns):
+    return sum([blocks_in_file(f) for f in fns])
+
+def split_data():
+    """Takes data files and assigns them randomly to training
+    and test data sets"""
+    if 'test_files' in db:
+        return
+    test_files = {}
+    train_files = {}
+    for ftype in filetypes():
+        files = ftype_files(ftype)
+        random.shuffle(files)
+        pivot = int(len(files) * args.split)
+        test_files[ftype] = files[0:pivot]
+        train_files[ftype] = files[pivot:]
+    # Save in the shelf
+    db['test_files'] = test_files
+    db['train_files'] = train_files
+        
+    # Now find out how many blocks we want for each file type
+    blocks = min([blocks_in_files(test_files[f]) for f in filetypes()])
+    if args.maxblocks and blocks>args.maxblocks: blocks = arg.maxblocks
+    db['blocks'] = blocks
+
+    # For each file type, make a list of all the 
+    for ftype in filetypes():
+        blks = []
+        for fn in test_files[ftype]:
+            blks += [(fn,i) for i in range(0,blocks_in_file(fn))]
+        random.shuffle(blks)
+        db[ftype] = list(sorted(blks[0:blocks]))
+
+def print_data():
+    t = ttable()
+    t.append_head(["FTYPE","Files","min blks","max blks","avg blks","total"])
+    t.set_col_alignment(1,t.RIGHT)
+    t.set_col_alignment(2,t.RIGHT)
+    t.set_col_alignment(3,t.RIGHT)
+    t.set_col_alignment(4,t.RIGHT)
+    t.set_col_alignment(5,t.RIGHT)
+    blocks_per_type = {}
+    for ftype in filetypes():
+        blocks = [os.path.getsize(fn)//args.blocksize for fn in ftype_files(ftype)]
+        blocks = list(filter(lambda v:v>0,blocks))
+
+        t.append_data((ftype,len(blocks),min(blocks),max(blocks),sum(blocks)/len(blocks),sum(blocks)))
+        blocks_per_type[ftype] = sum(blocks)
+    print(t.typeset(mode='text'))
+    print("Sampling fraction: {}".format(args.split))
+    print("Blocks per file type sample: {}".format(db['blocks']))
+    if not args.verbose: return
+    
+
+    def print_files(ftype,ary):
+        fmt = "{:40} {:8,}  {:8,}"
+        total_blks = 0
+        total_size = 0
+        for fn in ary[ftype]:
+            size = os.path.getsize(fn)
+            blks = blocks_in_file(fn)
+            print(fmt.format(fn,size,blks))
+            total_size += size
+            total_blks += blks
+        print(fmt.format("     Total",total_size,total_blks))
+    for ftype in filetypes():
+        print("Filetype: {}".format(ftype))
+        for what in ['test','train']:
+            print(what+" data:")
+            print_files(ftype,db[what+'_files'])
+            print("\n")
+        print("\n")
+    
+################################################################
+## Vector Generation
+################################################################
+
+
+def generate_train_vectors_for_type(ftype):
+    """Run sceadan for the specific blocks for each file"""
+
+    outfn = os.path.join(args.exe,'vectors.'+ftype)
+    out = open(outfn,"wb")
+    cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-']
+    p = Popen(cmd,stdout=out,stdin=PIPE)
+    if not res[0] and not res[1]:
+        return                  # no data, no problem (might be a sampling issue)
+
+    ret = ""
+    blocks_by_file = {}
+    for (fn,block) in db[ftype]:
+        if fn not in blocks_by_file:
+            blocks_by_file[fn] = set()
+        blocks_by_file[fn].add(block)
+    for (fn,blocks) in blocks_by_file.items():
+        f = open(fn,"rb")
+        for blk in blocks:
+            f.seek(blk * blocksize)
+            p.stdin.write(f.read())
+    p.stdin.close()
+    p.wait()
+    out.close()
+    return outfn
+
+def generate_train_vectors():
+    train_file = os.path.join(args.exp,"vectors_train")
+    tmp_file   = train_file+".tmp"
+    if os.path.exists(train_file): return
+    if os.path.exists(tmp_file): os.unlink(tmp_file)
+
+    f = open(tmp_file,"wb")
+    if args.j>1:
+        pool = multiprocessing.Pool(args.j)
+    else:
+        pool = multiprocessing.dummy.Pool(1)
+    for fn in pool.imap_unordered(generate_train_vectors_for_type,filetypes()):
+        f.write(open(fn,"rb").read())
+        os.unlink(fn)
+    f.close()
+    os.rename(tmp_file,train_file)
+
 help_text="""
 Train sceadan from input files. File type
 is determined by the containing directory name. If there is no containing directory
@@ -166,26 +300,40 @@ if __name__=="__main__":
     t0 = time.time()
     parser = argparse.ArgumentParser(description=help_text,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('files',action='store',help="input files or directories for training. ",nargs='+')
+    parser.add_argument("--data",help="Top directory of training/testing data",default='../DATA')
+    parser.add_argument("--exp",help="Directory to hold experimental information",required=True)
+    parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
+    parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
+    parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
+    
+    parser.add_argument("--validate",help="Validate input data",action="store_true",default=True)
+    parser.add_argument("--verbose",help="Print full detail",action='store_true')
     parser.add_argument('--blocksize',type=int,default=4096,help='blocksize for training.')
-    parser.add_argument('--outfile',help='output file for combined vectors',default='vectors.train')
-    parser.add_argument('--outdir',help='output dir for vector segments',default='vectors.train')
     parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
     parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--minfilesize',default=None,type=int)
-    parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
-    parser.add_argument('--skip',type=int,help='Skip this many records (for testing)')
     parser.add_argument('--confusion',action='store_true',help='Generate a confusion matrix')
     parser.add_argument('--debug',action='store_true')
 
     args = parser.parse_args()
 
-    t0 = time.time()
-    outfile = open(args.outfile,'w')
+    if not os.path.exists(args.exp):
+        os.mkdir(args.exp)
 
+    t0 = time.time()
+
+    import shelve
+    db = shelve.open(os.path.join(args.exp,"experiment"))
+
+    split_data()
+    print_data()
+    generate_train_vectors()
+
+
+    outfile = open(args.outfile,'w')
     if args.extractlog:
         train_extractlog(args.extractlog)
 

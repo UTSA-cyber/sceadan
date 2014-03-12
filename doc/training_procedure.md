@@ -4,16 +4,21 @@ Training Sceadan
 This document describes the procedure for training Sceadan and
 building a custom classifier:
 
-1. Make a list of the file types that you wish to classify.
+1. Compile sceadan and run the self-test
 
-2. Collect at least 40 samples of each file type, where the average file size is 100K - 1MB.
+   $ (cd src ; ./configure ; make ; make check)
+
+
+2. Make a list of the file types that you wish to classify.
+
+3. Collect at least 40 samples of each file type, where the average file size is 100K - 1MB.
 
    Ideally, the files should be from the country of interest.  If you
    intend to analyze data from multiple languages, create sub file
    types with the ISO 639-1 language code. e.g. doc-EN, doc-ES, doc-AR  
    (http://www.loc.gov/standards/iso639-2/php/code_list.php)
 
-3. Place the files in a directory hiearchy DATA/TYPE/file  where TYPE
+4. Place the files in a directory hiearchy DATA/TYPE/file  where TYPE
    is the code above (e..g doc-EN, JPG, etc.)
 
    DATA/<filetype>/document1
@@ -27,14 +32,13 @@ building a custom classifier:
    DATA/docx/yet_another_file.docx
    ...
 
-4. Validate the training data with the sceadan_train.py program:
+5. Validate the training data with the sceadan_train.py program:
 
-   $ python3 tools/sceadan_train.py --validate --data=DATA/
+   $ python3 tools/sceadan_train.py --validate --data=DATA/ --exp=EXPERIMENT/
 
-
-5. Compile sceadan:
-
-   $ (cd src ; ./configure ; make)
+   --validate   --- Validate what's in DATA
+   --data       --- specifies data repository
+   --exp        --- Specifies directory for experiment.
 
 
 FUTURE:
