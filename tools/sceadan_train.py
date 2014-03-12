@@ -250,12 +250,10 @@ def print_data():
 def generate_train_vectors_for_type(ftype):
     """Run sceadan for the specific blocks for each file"""
 
-    outfn = os.path.join(args.exe,'vectors.'+ftype)
+    outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
     cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-']
     p = Popen(cmd,stdout=out,stdin=PIPE)
-    if not res[0] and not res[1]:
-        return                  # no data, no problem (might be a sampling issue)
 
     ret = ""
     blocks_by_file = {}
@@ -266,7 +264,7 @@ def generate_train_vectors_for_type(ftype):
     for (fn,blocks) in blocks_by_file.items():
         f = open(fn,"rb")
         for blk in blocks:
-            f.seek(blk * blocksize)
+            f.seek(blk * args.blocksize)
             p.stdin.write(f.read())
     p.stdin.close()
     p.wait()
@@ -281,12 +279,14 @@ def generate_train_vectors():
 
     f = open(tmp_file,"wb")
     if args.j>1:
+        import multiprocessing
         pool = multiprocessing.Pool(args.j)
     else:
+        import multiprocessing.dummy
         pool = multiprocessing.dummy.Pool(1)
     for fn in pool.imap_unordered(generate_train_vectors_for_type,filetypes()):
         f.write(open(fn,"rb").read())
-        os.unlink(fn)
+        #os.unlink(fn)
     f.close()
     os.rename(tmp_file,train_file)
 
@@ -333,7 +333,7 @@ if __name__=="__main__":
     generate_train_vectors()
 
 
-    outfile = open(args.outfile,'w')
+    #outfile = open(args.outfile,'w')
     if args.extractlog:
         train_extractlog(args.extractlog)
 
