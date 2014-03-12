@@ -64,3 +64,6 @@ train_vectors/
 DATA/
 dist/
 .DS_Store
+__pycache_
+out-*/
+__pycache__
