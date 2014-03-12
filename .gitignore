@@ -63,3 +63,4 @@ train_vectors/
 *~
 DATA/
 dist/
+.DS_Store
