@@ -265,7 +265,7 @@ def generate_train_vectors_for_type(ftype):
         f = open(fn,"rb")
         for blk in blocks:
             f.seek(blk * args.blocksize)
-            p.stdin.write(f.read())
+            p.stdin.write(f.read(args.blocksize))
     p.stdin.close()
     p.wait()
     out.close()
