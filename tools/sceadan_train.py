@@ -165,6 +165,16 @@ def ftype_files(ftype):
     ftypedir = os.path.join(args.data,ftype)
     return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir)]
 
+def train_files(ftype):
+    """Returns all of the training files for a file type"""
+    return db['train_files'][ftype]
+
+def test_files(ftype):
+    """Returns all of the test files for a file type"""
+    return db['test_files'][ftype]
+
+
+
 def blocks_in_file(fn):
     """ Return the number of blocks in a given file """
     return os.path.getsize(fn)//args.blocksize
@@ -177,17 +187,17 @@ def split_data():
     and test data sets"""
     if 'test_files' in db:
         return
-    test_files = {}
-    train_files = {}
+    the_test_files = {}
+    the_train_files = {}
     for ftype in filetypes():
         files = ftype_files(ftype)
         random.shuffle(files)
         pivot = int(len(files) * args.split)
-        test_files[ftype] = files[0:pivot]
-        train_files[ftype] = files[pivot:]
+        the_test_files[ftype] = files[0:pivot]
+        the_train_files[ftype] = files[pivot:]
     # Save in the shelf
-    db['test_files'] = test_files
-    db['train_files'] = train_files
+    db['test_files'] = the_test_files
+    db['train_files'] = the_train_files
         
     # Now find out how many blocks we want for each file type
     blocks = min([blocks_in_files(test_files[f]) for f in filetypes()])
@@ -243,12 +253,12 @@ def print_data():
         print("\n")
     
 ################################################################
-## Vector Generation
+## Training Vector Generation
 ################################################################
 
-
 def generate_train_vectors_for_type(ftype):
-    """Run sceadan for the specific blocks for each file"""
+    """Run sceadan for the specific blocks for each file. Output goes to a 
+    temporary file whose name is returned to the caller."""
 
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
@@ -274,9 +284,12 @@ def generate_train_vectors_for_type(ftype):
 def generate_train_vectors():
     train_file = os.path.join(args.exp,"vectors_train")
     tmp_file   = train_file+".tmp"
-    if os.path.exists(train_file): return
+    if os.path.exists(train_file):
+        print("Will not re-generate train vectors: {} already exists".format(train_file))
+        return
     if os.path.exists(tmp_file): os.unlink(tmp_file)
 
+    print("Generating train vectors with j={}".format(args.j))
     f = open(tmp_file,"wb")
     if args.j>1:
         import multiprocessing
@@ -286,9 +299,36 @@ def generate_train_vectors():
         pool = multiprocessing.dummy.Pool(1)
     for fn in pool.imap_unordered(generate_train_vectors_for_type,filetypes()):
         f.write(open(fn,"rb").read())
-        #os.unlink(fn)
+        os.unlink(fn)
     f.close()
     os.rename(tmp_file,train_file)
+
+
+################################################################
+### Generate a confusion matrix
+################################################################
+def generate_confusion():
+    print("Generating confusion matrix")
+    import re
+    pat = re.compile("(\d+)\s+(.*) #")
+    for ftype in filetypes():
+        print("Filetype: ",ftype)
+        for fn in test_files(ftype):
+            print("  ",fn)
+            cmd = [args.exe]
+            if args.testblocksize:
+                cmd += ['-b',str(args.testblocksize)]
+            cmd += [fn]
+            res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
+            m = pat.search(res)
+            print(m.group(2))
+        print("\n")
+        
+            
+################################################################
+### Option Parsing
+################################################################
+
 
 help_text="""
 Train sceadan from input files. File type
@@ -309,13 +349,14 @@ if __name__=="__main__":
     parser.add_argument("--validate",help="Validate input data",action="store_true",default=True)
     parser.add_argument("--verbose",help="Print full detail",action='store_true')
     parser.add_argument('--blocksize',type=int,default=4096,help='blocksize for training.')
+    parser.add_argument('--testblocksize',type=int,help='blocksize for testing.')
     parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
     parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--minfilesize',default=None,type=int)
-    parser.add_argument('--confusion',action='store_true',help='Generate a confusion matrix')
+    parser.add_argument('--notrain',action='store_true',help='Do not train a new model')
     parser.add_argument('--debug',action='store_true')
 
     args = parser.parse_args()
@@ -330,8 +371,9 @@ if __name__=="__main__":
 
     split_data()
     print_data()
-    generate_train_vectors()
-
+    if not args.notrain:
+        generate_train_vectors()
+    generate_confusion()
 
     #outfile = open(args.outfile,'w')
     if args.extractlog:
@@ -343,5 +385,5 @@ if __name__=="__main__":
         else:
             train_files()
 
-    outfile.close()
+    #outfile.close()
     print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
