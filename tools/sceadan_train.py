@@ -238,8 +238,6 @@ def print_data():
         blocks_per_type[ftype] = sum(blocks)
     print(t.typeset(mode='text'))
     print("Sampling fraction: {}".format(args.split))
-    for k in db.keys():
-        print("key",k)
     print("Blocks per file type in sample:",db['blocks'])
     print("Total vectors in train set:",db['blocks']*len(db.keys()))
     if not args.verbose: return
@@ -377,11 +375,16 @@ def get_sceadan_score_for_filetype(ftype):
     if not args.nomodel:
         cmd += ['-m',model_file()]        
     cmd += test_files(ftype)
+    print("cmd: "," ".join(cmd)[0:120],"...")
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
-    for line in res:
-        m = pat.search(res)
-        tally[m.group(2)] += 1
-    print("Filetype: ",ftype,tally)
+    for line in res.split("\n"):
+        if line=="": continue
+        m = pat.search(line)
+        if m:
+            tally[m.group(2)] += 1
+        else:
+            print("Weird line:",line)
+    print(ftype,"classifications: ",tally)
     return (ftype,tally)
 
 def generate_confusion():
@@ -420,14 +423,14 @@ def generate_confusion():
         total_correct += tally.get(ftype.upper(),0)
         percent_correct = tally.get(ftype.upper(),0)*100.0 / count
         percent_correct_sum += percent_correct
-        data = [FTYPE] + [tally.get(f,0)/count*100.0 for f in classtypes]
+        data = [FTYPE] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
         t.append_data(data)
         rowcounter += 1
         if rowcounter % 5 ==0:
             t.append_data([''])
     print(t.typeset(mode='text'))
-    print("Overall accuracy: {}%".format((total_correct*100.0)/total_events))
-    print("Average accuracy per class: {}%".format(percent_correct_sum/len(filetypes())))
+    print("Overall accuracy: {:.0f}%".format((total_correct*100.0)/total_events))
+    print("Average accuracy per class: {:.0f}%".format(percent_correct_sum/len(filetypes())))
         
             
 ################################################################
