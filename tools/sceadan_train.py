@@ -45,7 +45,7 @@ def train_file(fname):
 
     # Collect the data points
 
-    cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
+    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
     p1 = Popen(cmd,stdout=PIPE,stderr=PIPE)
     res          = p1.communicate()
     if not res[0] and not res[1]:
@@ -76,7 +76,7 @@ confusion={}
 def confusion_file(fname):
     """Process a file and report how each block is classified"""
     ftype = get_ftype(fname)
-    cmd = [args.exe,'-b',str(args.blocksize),fname]
+    cmd = [args.exe,'-b',str(args.train_blocksize),fname]
     p1  = Popen(cmd,stdout=PIPE,stderr=PIPE)
     res = p1.communicate()
     r   = re.compile("(\d+)\s+([^ ]+)")
@@ -119,9 +119,6 @@ def train_buf(outfile,fn,offset,bufsize):
     ftype = get_ftype(fn)
     with open(fn,"rb") as fin:
         cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
-        if args.debug:
-            print(fn)
-            print(" ".join(cmd),file=sys.stderr)
         p1 = Popen(cmd,stdin=PIPE,stdout=PIPE)
         fin.seek(offset)
         p1.stdin.write(fin.read(bufsize))
@@ -180,10 +177,9 @@ def test_files(ftype):
     return db['test_files'][ftype]
 
 
-
 def blocks_in_file(fn):
     """ Return the number of blocks in a given file """
-    return os.path.getsize(fn)//args.blocksize
+    return os.path.getsize(fn)//args.train_blocksize
 
 def blocks_in_files(fns):
     return sum([blocks_in_file(f) for f in fns])
@@ -191,8 +187,14 @@ def blocks_in_files(fns):
 def split_data():
     """Takes data files and assigns them randomly to training
     and test data sets"""
-    if 'test_files' in db:
+    must_split = False
+    for key in ['test_files','train_files','blocks']:
+        print(key,key in db.keys())
+        if key not in db.keys():
+            must_split = True
+    if not must_split:
         return
+    print("Splitting data...")
     the_test_files = {}
     the_train_files = {}
     for ftype in filetypes():
@@ -206,14 +208,15 @@ def split_data():
     db['train_files'] = the_train_files
         
     # Now find out how many blocks we want for each file type
-    blocks = min([blocks_in_files(test_files[f]) for f in filetypes()])
+    blocks = min([blocks_in_files(the_test_files[f]) for f in filetypes()])
     if args.maxblocks and blocks>args.maxblocks: blocks = arg.maxblocks
     db['blocks'] = blocks
+    db['train_blocksize'] = args.train_blocksize
 
     # For each file type, make a list of all the 
     for ftype in filetypes():
         blks = []
-        for fn in test_files[ftype]:
+        for fn in the_test_files[ftype]:
             blks += [(fn,i) for i in range(0,blocks_in_file(fn))]
         random.shuffle(blks)
         db[ftype] = list(sorted(blks[0:blocks]))
@@ -228,14 +231,17 @@ def print_data():
     t.set_col_alignment(5,t.RIGHT)
     blocks_per_type = {}
     for ftype in filetypes():
-        blocks = [os.path.getsize(fn)//args.blocksize for fn in ftype_files(ftype)]
+        blocks = [os.path.getsize(fn)//args.train_blocksize for fn in ftype_files(ftype)]
         blocks = list(filter(lambda v:v>0,blocks))
 
         t.append_data((ftype,len(blocks),min(blocks),max(blocks),sum(blocks)/len(blocks),sum(blocks)))
         blocks_per_type[ftype] = sum(blocks)
     print(t.typeset(mode='text'))
     print("Sampling fraction: {}".format(args.split))
-    print("Blocks per file type sample: {}".format(db['blocks']))
+    for k in db.keys():
+        print("key",k)
+    print("Blocks per file type in sample:",db['blocks'])
+    print("Total vectors in train set:",db['blocks']*len(db.keys()))
     if not args.verbose: return
     
 
@@ -268,7 +274,7 @@ def generate_train_vectors_for_type(ftype):
 
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
-    cmd = [args.exe,'-b',str(args.blocksize),'-t',ftype,'-']
+    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-']
     p = Popen(cmd,stdout=out,stdin=PIPE)
 
     ret = ""
@@ -280,18 +286,20 @@ def generate_train_vectors_for_type(ftype):
     for (fn,blocks) in blocks_by_file.items():
         f = open(fn,"rb")
         for blk in blocks:
-            f.seek(blk * args.blocksize)
-            p.stdin.write(f.read(args.blocksize))
+            f.seek(blk * args.train_blocksize)
+            p.stdin.write(f.read(args.train_blocksize))
     p.stdin.close()
     p.wait()
     out.close()
     return outfn
 
+def train_file():
+    return os.path.join(args.exp,"vectors_to_train")
+
 def generate_train_vectors():
-    train_file = os.path.join(args.exp,"vectors_train")
-    tmp_file   = train_file+".tmp"
-    if os.path.exists(train_file):
-        print("Will not re-generate train vectors: {} already exists".format(train_file))
+    tmp_file   = train_file()+".tmp"
+    if os.path.exists(train_file()):
+        print("Will not re-generate train vectors: {} already exists".format(train_file()))
         return
     if os.path.exists(tmp_file): os.unlink(tmp_file)
 
@@ -307,7 +315,20 @@ def generate_train_vectors():
         f.write(open(fn,"rb").read())
         os.unlink(fn)
     f.close()
-    os.rename(tmp_file,train_file)
+    os.rename(tmp_file,train_file())
+
+def train_model():
+    import sys
+    cmd  = [sys.executable,'grid.py']
+    cmd += ['-j','2']             # since we compile with OpenMP, -2 is enough
+    cmd += ['-log2g','null','-gnuplot','null']
+    cmd += ['-svmtrain',args.trainexe]
+    cmd += ['-out',os.path.join(args.exp,'model')]
+    cmd += [train_file()]
+    print(" ".join(cmd))
+    t0 = time.time()
+    call(cmd)
+    print("Training time: ",time.time()-t0)
 
 
 ################################################################
@@ -318,8 +339,8 @@ def get_sceadan_score_for_file(fn,tally):
     import re
     pat = re.compile("(\d+)\s+(.*) #")
     cmd = [args.exe]
-    if args.testblocksize:
-        cmd += ['-b',str(args.testblocksize)]
+    if args.test_blocksize:
+        cmd += ['-b',str(args.test_blocksize)]
     cmd += [fn]
     from collections import defaultdict
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
@@ -396,24 +417,30 @@ if __name__=="__main__":
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
-    
-    parser.add_argument("--validate",help="Validate input data",action="store_true",default=True)
+    parser.add_argument("--trainexe",help="Liblinear train executable",default='../liblinear-1.94-omp/train')
     parser.add_argument("--verbose",help="Print full detail",action='store_true')
-    parser.add_argument('--blocksize',type=int,default=4096,help='blocksize for training.')
-    parser.add_argument('--testblocksize',type=int,help='blocksize for testing.')
-    parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
+    parser.add_argument('--train_blocksize',type=int,default=4096,help='blocksize for training.')
+    parser.add_argument('--test_blocksize',type=int,help='blocksize for testing.')
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
+    parser.add_argument('--note',help='Add a note to the expeirment archive')
+    parser.add_argument('--notrain',action='store_true',help='Do not train a new model')
+    
+    parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
     parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
     parser.add_argument('--minfilesize',default=None,type=int)
-    parser.add_argument('--notrain',action='store_true',help='Do not train a new model')
-    parser.add_argument('--debug',action='store_true')
 
     args = parser.parse_args()
 
     if not os.path.exists(args.exp):
         os.mkdir(args.exp)
+
+    if args.note:
+        with open(os.path.join(args.exp,"note.txt"),"a") as f:
+            f.write(time.asctime()+"\n")
+            f.write(args.note+"\n")
+            
 
     t0 = time.time()
 
@@ -428,6 +455,7 @@ if __name__=="__main__":
     print_data()
     if not args.notrain:
         generate_train_vectors()
+        train_model()
     generate_confusion()
 
     print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
