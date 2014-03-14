@@ -12,6 +12,7 @@
 import sys,re,os,collections,random,multiprocessing
 from subprocess import call,PIPE,Popen
 from ttable import ttable
+from collections import defaultdict
 
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
@@ -156,9 +157,14 @@ def train_extractlog(fn):
 ## Sample Selection
 ################################################################
 
-def filetypes():
+def filetypes(upper=False):
     """Returns a list of the filetypes"""
-    return [fn for fn in os.listdir(args.data) if os.path.isdir(os.path.join(args.data,fn))]
+    ftypes = [fn for fn in os.listdir(args.data) if os.path.isdir(os.path.join(args.data,fn))]
+    ftypes.sort()
+    if upper:
+        ftypes = [fn.upper() for fn in ftypes]
+    return ftypes
+    
 
 def ftype_files(ftype):
     """Returns a list of the pathnames for a give filetype in the training set"""
@@ -307,22 +313,67 @@ def generate_train_vectors():
 ################################################################
 ### Generate a confusion matrix
 ################################################################
-def generate_confusion():
-    print("Generating confusion matrix")
+def get_sceadan_score_for_file(fn,tally):
+    """Score a file, optionally with test blocksize."""
     import re
     pat = re.compile("(\d+)\s+(.*) #")
+    cmd = [args.exe]
+    if args.testblocksize:
+        cmd += ['-b',str(args.testblocksize)]
+    cmd += [fn]
+    from collections import defaultdict
+    res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
+    for line in res:
+        m = pat.search(res)
+        tally[m.group(2)] += 1
+
+def get_sceadan_score_for_filetype(ftype):
+    tally = defaultdict(int)
+    for fn in test_files(ftype):
+        get_sceadan_score_for_file(fn,tally)
+    print("Filetype: ",ftype,tally)
+    return (ftype,tally)
+
+def generate_confusion():
+    print("Generating confusion matrix")
+    t = ttable()
+    #t.append_head(['File Type','Classifies as'])
+
+    # Okay. Get these in a row with a threadpool
+    if args.j>1:
+        import multiprocessing
+        pool = multiprocessing.Pool(args.j)
+    else:
+        import multiprocessing.dummy
+        pool = multiprocessing.dummy.Pool(1)
+    sceadan_score_rows = {}
+    classified_types = set()
+    for (ftype,tally) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
+        sceadan_score_rows[ftype] = tally
+        classified_types = classified_types.union(set(tally.keys()))
+
+    classtypes = [t.upper() for t in sorted(classified_types)]
+
+    # Get a list of all the classified types
+    # And calculate the precision and recall
+
+    t.append_head([''] + classtypes)
+    total_events = 0
+    total_correct = 0
+    rowcounter = 0
     for ftype in filetypes():
-        print("Filetype: ",ftype)
-        for fn in test_files(ftype):
-            print("  ",fn)
-            cmd = [args.exe]
-            if args.testblocksize:
-                cmd += ['-b',str(args.testblocksize)]
-            cmd += [fn]
-            res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
-            m = pat.search(res)
-            print(m.group(2))
-        print("\n")
+        FTYPE = ftype.upper()
+        tally = sceadan_score_rows[ftype]
+        count = sum(tally.values())
+        total_events  += count
+        total_correct += tally.get(ftype,0)
+        data = [FTYPE] + [tally.get(f,0)/count*100.0 for f in classtypes]
+        t.append_data(data)
+        rowcounter += 1
+        if rowcounter % 5 ==0:
+            t.append_data([''])
+    print(t.typeset(mode='text'))
+    print("Overall accuracy: {}%".format(total_correct*100.0/total_events))
         
             
 ################################################################
@@ -366,6 +417,10 @@ if __name__=="__main__":
 
     t0 = time.time()
 
+    if args.extractlog:
+        train_extractlog(args.extractlog)
+        exit(0)
+
     import shelve
     db = shelve.open(os.path.join(args.exp,"experiment"))
 
@@ -375,15 +430,4 @@ if __name__=="__main__":
         generate_train_vectors()
     generate_confusion()
 
-    #outfile = open(args.outfile,'w')
-    if args.extractlog:
-        train_extractlog(args.extractlog)
-
-    if args.files:
-        if args.confusion:
-            confusion_files()
-        else:
-            train_files()
-
-    #outfile.close()
     print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
