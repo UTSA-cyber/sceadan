@@ -73,9 +73,11 @@ int    opt_seed = 0;                    /* random number seed */
 
 const char *opt_model = 0;
 
-static void do_output(sceadan *s,const char *path,uint64_t offset,int file_type )
+static sceadan *s = 0;                         /* the sceadan we are using */
+
+static void do_output(sceadan *sc,const char *path,uint64_t offset,int file_type )
 {
-    printf("%-10" PRId64 " %s # %s\n", offset,sceadan_name_for_type(s,file_type),path);
+    printf("%-10" PRId64 " %s # %s\n", offset,sceadan_name_for_type(sc,file_type),path);
 }
 
 
@@ -105,7 +107,6 @@ static int process_file(const char path[],
         }
     }
 
-    sceadan *s = sceadan_open(opt_model,0);
     int training = 0;
         
     if(opt_json){
@@ -120,7 +121,7 @@ static int process_file(const char path[],
 
     /* Test the incremental classifier */
     const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
-    if (fd<0){perror("open");exit(0);}
+    if (fd<0){ perror("open");exit(0); }
     uint8_t   *buf = (uint8_t *)malloc(block_size);
     if(buf==0){ perror("malloc"); exit(1); }
         
@@ -161,7 +162,7 @@ static int process_file(const char path[],
         offset += rd;
     }
     free(buf);
-    sceadan_close(s);
+    sceadan_clear(s);
     if(fd) close(fd);
     return 0;
 }
@@ -177,9 +178,9 @@ static int get_type(const char *name)
 {
     int ival = atoi(name);
     if(ival) return ival;
-    sceadan *s = sceadan_open(0,0);
-    ival = sceadan_type_for_name(s,name);
-    sceadan_close(s);
+    sceadan *sc = sceadan_open(0,0);
+    ival = sceadan_type_for_name(sc,name);
+    sceadan_close(sc);
     if(ival>0) return ival;
     fprintf(stderr,"%s: not a valid type name\n",name);
     exit(1);
@@ -188,7 +189,7 @@ static int get_type(const char *name)
 void usage(void) __attribute__((noreturn));
 void usage()
 {
-    puts("usage: sceadan_app [options] inputfile");
+    puts("usage: sceadan_app [options] inputfile [file2 file3 ...]");
     puts("where [options] are:");
     printf("infile - file to analyze. Specify '-' to input from stdin\n");
     printf("for training:\n");
@@ -208,11 +209,11 @@ void usage()
     puts("");
     if(opt_help>1){
         puts("Classes");
-        sceadan *s = sceadan_open(0,0);
-        for(int i=0;sceadan_name_for_type(s,i);i++){
-            printf("\t%2d : %s\n",i,sceadan_name_for_type(s,i));
+        sceadan *sc = sceadan_open(0,0);
+        for(int i=0;sceadan_name_for_type(sc,i);i++){
+            printf("\t%2d : %s\n",i,sceadan_name_for_type(sc,i));
         }
-        sceadan_close(s);
+        sceadan_close(sc);
     }
     exit(0);
 }
@@ -243,7 +244,10 @@ int main (int argc, char *const argv[])
         usage();
     }
 
-    if(argc != 1) usage();
+    s = sceadan_open(opt_model,0);
+
+
+    if(argc < 1) usage();
     if(strcmp(argv[0],"-")==0){         /* process stdin */
         process_file("-",0,FTW_F);      /* FTW_F is not correct, but it works with process_file */
     }

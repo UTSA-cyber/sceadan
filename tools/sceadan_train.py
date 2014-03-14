@@ -296,6 +296,9 @@ def generate_train_vectors_for_type(ftype):
 def train_file():
     return os.path.join(args.exp,"vectors_to_train")
 
+def model_file():
+    return os.path.join(args.exp,"model")
+
 def generate_train_vectors():
     tmp_file   = train_file()+".tmp"
     if os.path.exists(train_file()):
@@ -319,16 +322,41 @@ def generate_train_vectors():
 
 def train_model():
     import sys
-    cmd  = [sys.executable,'grid.py']
-    cmd += ['-j','2']             # since we compile with OpenMP, -2 is enough
-    cmd += ['-log2g','null','-gnuplot','null']
-    cmd += ['-svmtrain',args.trainexe]
-    cmd += ['-out',os.path.join(args.exp,'model')]
-    cmd += [train_file()]
-    print(" ".join(cmd))
+
+    #
+    # First run grid.py
+    #
+    dataset_out = os.path.join(args.exp,'dataset.out')
+    if not args.nogrid:
+        cmd  = [sys.executable,'grid.py']
+        cmd += ['-j','2']             # since we compile with OpenMP, -2 is enough
+        cmd += ['-log2g','null','-gnuplot','null']
+        cmd += ['-svmtrain',args.trainexe]
+        cmd += ['-out',dataset_out]
+        cmd += [train_file()]
+        print(" ".join(cmd))
+        t0 = time.time()
+        call(cmd)
+        t = time.time()-t0
+        print("Grid Search time: {} seconds".format(t))
+        db['grid_cmd'] = cmd
+        db['grid_time'] = t
+    #
+    # Now run the trainer
+    #
+    c = args.c
+    if not c:
+        # Try to read from the file
+        pat = re.compile("log2c=(\d+)")
+        for line in open(dataset_out,'r'):
+            m = pat.search(line)
+            if m:
+                c = m.group(1)
+        print("Using c={} from file".format(c))
+    cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',c,train_file(),model_file()]
     t0 = time.time()
     call(cmd)
-    print("Training time: ",time.time()-t0)
+    print("Time to train: {}".format(time.time()-t0))
 
 
 ################################################################
@@ -336,22 +364,23 @@ def train_model():
 ################################################################
 def get_sceadan_score_for_file(fn,tally):
     """Score a file, optionally with test blocksize."""
+
+def get_sceadan_score_for_filetype(ftype):
+    from collections import defaultdict
+
+    tally = defaultdict(int)
     import re
     pat = re.compile("(\d+)\s+(.*) #")
     cmd = [args.exe]
     if args.test_blocksize:
         cmd += ['-b',str(args.test_blocksize)]
-    cmd += [fn]
-    from collections import defaultdict
+    if not args.nomodel:
+        cmd += ['-m',model_file()]        
+    cmd += test_files(ftype)
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
     for line in res:
         m = pat.search(res)
         tally[m.group(2)] += 1
-
-def get_sceadan_score_for_filetype(ftype):
-    tally = defaultdict(int)
-    for fn in test_files(ftype):
-        get_sceadan_score_for_file(fn,tally)
     print("Filetype: ",ftype,tally)
     return (ftype,tally)
 
@@ -381,20 +410,24 @@ def generate_confusion():
     t.append_head([''] + classtypes)
     total_events = 0
     total_correct = 0
+    percent_correct_sum= 0
     rowcounter = 0
     for ftype in filetypes():
         FTYPE = ftype.upper()
         tally = sceadan_score_rows[ftype]
         count = sum(tally.values())
         total_events  += count
-        total_correct += tally.get(ftype,0)
+        total_correct += tally.get(ftype.upper(),0)
+        percent_correct = tally.get(ftype.upper(),0)*100.0 / count
+        percent_correct_sum += percent_correct
         data = [FTYPE] + [tally.get(f,0)/count*100.0 for f in classtypes]
         t.append_data(data)
         rowcounter += 1
         if rowcounter % 5 ==0:
             t.append_data([''])
     print(t.typeset(mode='text'))
-    print("Overall accuracy: {}%".format(total_correct*100.0/total_events))
+    print("Overall accuracy: {}%".format((total_correct*100.0)/total_events))
+    print("Average accuracy per class: {}%".format(percent_correct_sum/len(filetypes())))
         
             
 ################################################################
@@ -424,12 +457,16 @@ if __name__=="__main__":
     parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
     parser.add_argument('--note',help='Add a note to the expeirment archive')
     parser.add_argument('--notrain',action='store_true',help='Do not train a new model')
+    parser.add_argument('--c',help='Specify C parameter for training')
+    parser.add_argument('--epsilon',help='Error for training',type=float,default=0.01)
+    parser.add_argument('--nogrid',help='Do not use a grid search to find c',action='store_true')
+    parser.add_argument('--nomodel',help='Use built-in model',action='store_true')
     
-    parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
-    parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
-    parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
-    parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
-    parser.add_argument('--minfilesize',default=None,type=int)
+    #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
+    #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
+    #parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
+    #parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
+    #parser.add_argument('--minfilesize',default=None,type=int)
 
     args = parser.parse_args()
 
@@ -444,9 +481,9 @@ if __name__=="__main__":
 
     t0 = time.time()
 
-    if args.extractlog:
-        train_extractlog(args.extractlog)
-        exit(0)
+    #if args.extractlog:
+    #    train_extractlog(args.extractlog)
+    #    exit(0)
 
     import shelve
     db = shelve.open(os.path.join(args.exp,"experiment"))
@@ -458,4 +495,4 @@ if __name__=="__main__":
         train_model()
     generate_confusion()
 
-    print("Elapsed time: {:10.2g} seconds".format(time.time()-t0))
+    print("Elapsed time: {:10f} seconds".format(time.time()-t0))

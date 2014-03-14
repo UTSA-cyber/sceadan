@@ -38,7 +38,7 @@ sceadan *sceadan_open(const char *model_file,const char *map_file); // use 0 for
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
 void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);
-void sceadan_vectors_clear(sceadan *s);
+void sceadan_clear(sceadan *s);         // like a close and open
 int sceadan_classify(sceadan *);
 int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
 int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);

@@ -739,7 +739,7 @@ void sceadan_close(sceadan *s)
 #endif
 }
 
-void sceadan_vectors_clear(sceadan *s)
+void sceadan_clear(sceadan *s)
 {
 #ifdef HAVE_LIBLINEAR
     memset(s->v,0,sizeof(sceadan_vectors_t));
@@ -771,7 +771,7 @@ int sceadan_classify(sceadan *s)
 #ifdef HAVE_LIBLINEAR
     vectors_finalize(s->v);
     int r = sceadan_predict(s,s->v);
-    sceadan_vectors_clear(s);
+    sceadan_clear(s);
     return r;
 #else
     return -1;
