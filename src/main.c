@@ -199,6 +199,7 @@ void usage()
     printf("  -s N        - specifies a random number generator seed.\n");
     printf("  -x          - omit file headers (the first block)\n");
     printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
+    printf("  -n M        - ngram mode (0=disjoint, 1=overlapping, 2=even/odd)\n");
 
     printf("\nfor classifying:\n");
     printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
@@ -221,6 +222,7 @@ void usage()
 int main (int argc, char *const argv[])
 {
     int ch;
+    int opt_ngram_mode = 0;
     while((ch = getopt(argc,argv,"b:ej:m:Pp:r:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
@@ -232,6 +234,7 @@ int main (int argc, char *const argv[])
         case 't': opt_train = get_type(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;
+        case 'n': opt_ngram_mode = atoi(optarg);break;
         }
     }
     if (opt_help) usage();
@@ -245,6 +248,7 @@ int main (int argc, char *const argv[])
     }
 
     s = sceadan_open(opt_model,0);
+    sceadan_set_ngram_mode(s,opt_ngram_mode);
 
 
     if(argc < 1) usage();

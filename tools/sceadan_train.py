@@ -263,6 +263,22 @@ def print_data():
         print("\n")
     
 ################################################################
+### Utilitiy functions
+################################################################
+
+def expname(fn):
+    return os.path.join(args.exp,fn)
+
+def openexp(fn,mode):
+    return open(expname(fn),mode)
+
+def train_file():
+    return os.path.join(args.exp,"vectors_to_train")
+
+def model_file():
+    return os.path.join(args.exp,"model")
+
+################################################################
 ## Training Vector Generation
 ################################################################
 
@@ -273,6 +289,7 @@ def generate_train_vectors_for_type(ftype):
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
     cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-']
+    db['train_blocksize'] = args.train_blocksize
     p = Popen(cmd,stdout=out,stdin=PIPE)
 
     ret = ""
@@ -291,17 +308,11 @@ def generate_train_vectors_for_type(ftype):
     out.close()
     return outfn
 
-def train_file():
-    return os.path.join(args.exp,"vectors_to_train")
-
-def model_file():
-    return os.path.join(args.exp,"model")
-
 def generate_train_vectors():
-    tmp_file   = train_file()+".tmp"
     if os.path.exists(train_file()):
         print("Will not re-generate train vectors: {} already exists".format(train_file()))
         return
+    tmp_file   = train_file()+".tmp"
     if os.path.exists(tmp_file): os.unlink(tmp_file)
 
     print("Generating train vectors with j={}".format(args.j))
@@ -324,6 +335,10 @@ def train_model():
     #
     # First run grid.py
     #
+    if os.path.exists(model_file()):
+        print("Will not regenerate {}: already exists".format(model_file()))
+        return
+
     dataset_out = os.path.join(args.exp,'dataset.out')
     if not args.nogrid:
         cmd  = [sys.executable,'grid.py']
@@ -345,13 +360,18 @@ def train_model():
     c = args.c
     if not c:
         # Try to read from the file
-        pat = re.compile("log2c=(\d+)")
+        best_rate = 0
+        pat = re.compile("log2c=(\d+) rate=([\d\.]+)")
         for line in open(dataset_out,'r'):
             m = pat.search(line)
             if m:
-                c = m.group(1)
-        print("Using c={} from file".format(c))
-    cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',c,train_file(),model_file()]
+                this_c = 2**int(m.group(1))
+                this_rate = float(m.group(2))
+                if this_rate > best_rate:
+                    best_rate = this_rate
+                    c = this_c
+        print("Using c={} (best rate={}) from file".format(c,best_rate))
+    cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',str(c),train_file(),model_file()]
     t0 = time.time()
     call(cmd)
     print("Time to train: {}".format(time.time()-t0))
@@ -388,8 +408,15 @@ def get_sceadan_score_for_filetype(ftype):
     return (ftype,tally)
 
 def generate_confusion():
+    if os.path.exists(expname("confusion.txt")):
+        print("Confusion matrix already exists")
+        return
+
     print("Generating confusion matrix")
     t = ttable()
+
+    db['test_blocksize'] = args.test_blocksize
+
     #t.append_head(['File Type','Classifies as'])
 
     # Okay. Get these in a row with a threadpool
@@ -428,9 +455,13 @@ def generate_confusion():
         rowcounter += 1
         if rowcounter % 5 ==0:
             t.append_data([''])
-    print(t.typeset(mode='text'))
-    print("Overall accuracy: {:.0f}%".format((total_correct*100.0)/total_events))
-    print("Average accuracy per class: {:.0f}%".format(percent_correct_sum/len(filetypes())))
+    txt_report = t.typeset(mode='text') +\
+        "Train blocksize: {}\n".format(db['train_blocksize']) +\
+        "Test blockszie: {}\n".format(db['test_blocksize']) +\
+        "Overall accuracy: {:.0f}%\n".format((total_correct*100.0)/total_events) + \
+        "Average accuracy per class: {:.0f}%".format(percent_correct_sum/len(filetypes()))
+    openexp("confusion.txt","w").write(txt_report)
+    print(txt_report)
         
             
 ################################################################
@@ -477,7 +508,7 @@ if __name__=="__main__":
         os.mkdir(args.exp)
 
     if args.note:
-        with open(os.path.join(args.exp,"note.txt"),"a") as f:
+        with openexp("note.txt","a") as f:
             f.write(time.asctime()+"\n")
             f.write(args.note+"\n")
             
@@ -489,7 +520,7 @@ if __name__=="__main__":
     #    exit(0)
 
     import shelve
-    db = shelve.open(os.path.join(args.exp,"experiment"))
+    db = shelve.open(expname("experiment"))
 
     split_data()
     print_data()

@@ -263,53 +263,29 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 
 
 /* FUNCTIONS FOR VECTORS */
-static void vectors_update (const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
+static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
 {
-    const int sz_mod = v->mfv.uni_sz % 2; 
-    for (size_t ndx = 0; ndx < sz; ndx++) {
+    const int sz_mod = v->mfv.uni_sz % 2; /* size mod 2. Parity of buf[0] apparently */
+    for (size_t ndx = 0; ndx < sz; ndx++) { /* ndx is index within the buffer */
 
         /* Compute the unigrams */
         const unigram_t unigram = buf[ndx];
         v->ucv[unigram].tot++;
 
-
-
         /* Compute the bigrams */
-        {
-            unigram_t prev = v->last_val;
-            unigram_t next = unigram;
+        unigram_t prev = v->last_val;
+        unigram_t next = unigram;
 
-            if(ndx==0){
-                v->bcv[prev][next].tot++;
-                v->mfv.contiguity.tot += abs (next - prev);
-            } else if (ndx+1 < sz){
-                prev = unigram;
-                next = buf[ndx+1];
-                v->mfv.contiguity.tot += abs (next - prev); 
-                if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
-
-            }
+        if(ndx==0){                     /* the first always gets counted (shoudn't this be if mfv.uni_sz==0? */
+            v->bcv[prev][next].tot++;
+            v->mfv.contiguity.tot += abs (next - prev);
+        } else if (ndx+1 < sz){
+            prev = unigram;
+            next = buf[ndx+1];
+            v->mfv.contiguity.tot += abs (next - prev); 
+            if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
+            
         }
-
-#ifdef ORIG
-        {
-            unigram_t prev;                                                    
-            unigram_t next;                                                    
-
-            if (ndx == 0 && sz_mod != 0) {
-                prev = v->last_val;                                            
-                next = unigram;                                                
-
-                v->bcv[prev][next].tot++;                                      
-                v->mfv.contiguity.tot += abs (next - prev); 
-            } else if (ndx + 1 < sz) {
-                prev = unigram;                                                
-                next = buf[ndx + 1];                                           
-                v->mfv.contiguity.tot += abs (next - prev); 
-                if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
-            }
-        }
-#endif            
 
         // total count of set bits (for hamming weight)
         // this is wierd
@@ -751,7 +727,7 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 #ifdef HAVE_LIBLINEAR
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
-    vectors_update(buf, bufsize, &v);
+    vectors_update(s,buf, bufsize, &v);
     vectors_finalize(&v);
     return sceadan_predict(s,&v);
 #else
@@ -762,7 +738,7 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
 {
 #ifdef HAVE_LIBLINEAR
-    vectors_update(buf, bufsize, s->v);
+    vectors_update(s,buf, bufsize, s->v);
 #endif
 }
 
@@ -790,7 +766,7 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
         uint8_t    buf[BUFSIZ];
         const ssize_t rd = read (fd, buf, sizeof (buf));
         if(rd<=0) break;
-        vectors_update(buf,rd,&v);
+        vectors_update(s,buf,rd,&v);
     }
     if(close(fd)<0) return -1;
     return sceadan_predict(s,&v);
@@ -813,4 +789,9 @@ void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
     s->dump_nodes = out;
     s->file_type = file_type;
 #endif
+}
+
+void sceadan_set_ngram_mode(sceadan *s,int mode)
+{
+    s->ngram_mode = mode;
 }

@@ -26,6 +26,7 @@ struct sceadan_t {
     FILE *dump_nodes;
     int file_type;                    // when dumping
     struct sceadan_vectors *v;
+    int ngram_mode;
 };
 typedef struct sceadan_t sceadan;
 
@@ -47,6 +48,11 @@ int sceadan_type_for_name(const sceadan *,const char *name);
 void sceadan_close(sceadan *);
 void sceadan_dump_json_on_classify(sceadan *,int file_type,FILE *out); // dump JSON vectors instead of classifying
 void sceadan_dump_nodes_on_classify(sceadan *,int file_type,FILE *out); // dump  vectors instead of classifying
+void sceadan_set_ngram_mode(sceadan *s,int mode);
+
+#define SCEADAN_NGRAM_MODE_DISJOINT 0
+#define SCEADAN_NGRAM_MODE_OVERLAPPING 1
+#define SCEADAN_NGRAM_MODE_PARITY 2
 
 __END_DECLS
 
