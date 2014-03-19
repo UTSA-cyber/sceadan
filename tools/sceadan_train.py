@@ -472,7 +472,7 @@ def generate_confusion():
         "Train blocksize: {}\n".format(db['train_blocksize']) +\
         "Test blocksize: {}\n".format(db['test_blocksize']) +\
         "Overall accuracy: {:.1f}%\n".format((total_correct*100.0)/total_events) + \
-        "Average accuracy per class: {:.1f}%".format(percent_correct_sum/len(filetypes())) +\
+        "Average accuracy per class: {:.1f}%\n".format(percent_correct_sum/len(filetypes())) +\
         "Vector generation command: {}\n".format(db['vector_generation_cmd']) +\
         "Liblinear training command: {}\n".format(db['liblinear_train_command']) +\
         "Sceadan classification command: {}\n".format(db['sceadan_classification_cmd'][0:120]) 
