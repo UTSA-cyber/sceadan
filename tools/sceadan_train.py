@@ -563,5 +563,5 @@ if __name__=="__main__":
     generate_confusion()
 
     sec = time.time() - t0
-    print("Elapsed time: {} ({:.0g} seconds)".format(
+    print("Elapsed time: {} ({:.0f} seconds)".format(
             str(datetime.timedelta(seconds=sec)),sec))
