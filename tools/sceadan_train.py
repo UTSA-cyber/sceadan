@@ -154,6 +154,9 @@ ftype_equivs = {"JPEG":"JPG",
 ## Sample Selection
 ################################################################
 
+def datadir():
+    return args.data
+
 def filetypes(upper=False):
     """Returns a list of the filetypes"""
     ftypes = [fn for fn in os.listdir(args.data) if os.path.isdir(os.path.join(args.data,fn))]
@@ -162,7 +165,6 @@ def filetypes(upper=False):
         ftypes = [fn.upper() for fn in ftypes]
     return ftypes
     
-
 def ftype_files(ftype):
     """Returns a list of the pathnames for a give filetype in the training set"""
     ftypedir = os.path.join(args.data,ftype)
@@ -222,6 +224,7 @@ def split_data():
         db[ftype] = list(sorted(blks[0:blocks]))
 
 def print_data():
+    print("Data directory:",datadir())
     t = ttable()
     t.append_head(["FTYPE","Files","min blks","max blks","avg blks","total"])
     t.set_col_alignment(1,t.RIGHT)
@@ -233,15 +236,15 @@ def print_data():
     for ftype in filetypes():
         blocks = [os.path.getsize(fn)//args.train_blocksize for fn in ftype_files(ftype)]
         blocks = list(filter(lambda v:v>0,blocks))
-
         t.append_data((ftype,len(blocks),min(blocks),max(blocks),sum(blocks)/len(blocks),sum(blocks)))
         blocks_per_type[ftype] = sum(blocks)
     print(t.typeset(mode='text'))
+
+def print_sample():
     print("Sampling fraction: {}".format(args.split))
     print("Blocks per file type in sample:",db['blocks'])
     print("Total vectors in train set:",db['blocks']*len(db.keys()))
     if not args.verbose: return
-    
 
     def print_files(ftype,ary):
         fmt = "{:40} {:8,}  {:8,}"
@@ -277,6 +280,8 @@ def train_file():
 
 def model_file():
     return os.path.join(args.exp,"model")
+
+
 
 ################################################################
 ## Training Vector Generation
@@ -492,7 +497,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description=help_text,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--data",help="Top directory of training/testing data",default='../DATA')
-    parser.add_argument("--exp",help="Directory to hold experimental information",required=True)
+    parser.add_argument("--exp",help="Directory to hold experimental information")
     parser.add_argument("--copyexp",help="Copy training data from this directory")
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
@@ -509,6 +514,7 @@ if __name__=="__main__":
     parser.add_argument('--nogrid',help='Do not use a grid search to find c',action='store_true')
     parser.add_argument('--nomodel',help='Use built-in model',action='store_true')
     parser.add_argument('--ngram_mode',help='ngram mode',type=str)
+    parser.add_argument('--validate',help='Just validate the test data',action='store_true')
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
@@ -518,7 +524,13 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
+    if args.validate:
+        print_data()
+        exit(0)
 
+    if not args.exp:
+        print("--exp <DIR> must be provided")
+        exit(1)
     if not os.path.exists(args.exp):
         os.mkdir(args.exp)
 

@@ -8,11 +8,11 @@ building a custom classifier:
 
    $ (cd src ; ./configure ; make ; make check)
 
-
 2. Make a list of the file types that you wish to classify.
 
 3. Collect at least 40 samples of each file type, where the average file size is 100K - 1MB.
 
+   [THIS DOESN'T WORK YET:]
    Ideally, the files should be from the country of interest.  If you
    intend to analyze data from multiple languages, create sub file
    types with the ISO 639-1 language code. e.g. doc-EN, doc-ES, doc-AR  
@@ -32,47 +32,22 @@ building a custom classifier:
    DATA/docx/yet_another_file.docx
    ...
 
-5. Validate the training data with the sceadan_train.py program:
+5. cd tools
 
-   $ python3 tools/sceadan_train.py --validate --data=DATA/ --exp=EXPERIMENT/
+6. Validate the training data with the sceadan_train.py program:
+
+   $ python3 tools/sceadan_train.py --validate --data=DATA/ 
 
    --validate   --- Validate what's in DATA
-   --data       --- specifies data repository
-   --exp        --- Specifies directory for experiment.
+   --data=      --- specifies data repository
 
 
-FUTURE:
-   Create the TEST and TRAIN data sets by sampling the DATA:
+7. Try to train with 50% of the data for training and 50% for testing:
 
-   $ python3 tools/sceadan_train.py --split --data=DATA/
+   $ python3 tools/sceadan_train.py --data=DATA/  --exp=experiment1
 
-   This will create the DATA-TRAIN.txt and DATA-TEST.txt list of files
-   for the training and test sets.
-
-Currently, this is a multi-step process; it needs to be a single-step
-process:
-
-
-
-3. Use tools/sceadan_train.py to create the training vectors:
-
-   tools/sceadan_train.py --build-vectors  --train-dir=<TRAINDIR>  --vector-file=vectors
-
-   (The program will print how many files and blocks it has for each file type, 
-   and will then choose a set of random blocks.)
-
-4. Use tools/sceadan_train.py to train the model:
-
-   tools/sceadan_train.py --train-model --vector-file=output --model-file=vectors.model
-
-5. Use tools/sceadan_train.py to print the confusion matrix using the test data:
-
-   tools/sceadan_train.py --validate  --test-dir=<TESTDIR> --model-file=vectors.model
-
-
-
-
-
+   --data=      --- specifies data repository
+   --exp=       --- specifies where experiment gets put
 
 
 
