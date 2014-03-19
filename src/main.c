@@ -222,8 +222,8 @@ void usage()
 int main (int argc, char *const argv[])
 {
     int ch;
-    int opt_ngram_mode = 0;
-    while((ch = getopt(argc,argv,"b:ej:m:Pp:r:t:xh")) != -1){
+    int opt_ngram_mode = SCEADAN_NGRAM_MODE_DISJOINT;
+    while((ch = getopt(argc,argv,"b:ej:m:n:Pp:r:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
         case 'j': opt_json  = get_type(optarg); break;

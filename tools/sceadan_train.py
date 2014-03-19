@@ -25,130 +25,130 @@ ftype_equivs = {"JPEG":"JPG",
                 "MSF":"TBIRD",
                 "URLENCODED":"URL"}
 
-def get_ftype(fn):
-    ftype = os.path.basename(os.path.dirname(fn))
-    if ftype: return ftype.upper()
-    ftype = os.path.splitext(fn.upper())[1][1:]
-    return ftype_equivs.get(ftype,ftype)
-    
-def train_file(fname):
-    """Process a file and send a list of vectors to output file"""
-
-    if args.minfilesize and os.path.getsize(fname) < args.minfilesize:
-        print("Ignoring small file",fname)
-        return
-    
-    ftype = get_ftype(fname)
-
-    # See if we need more of this type
-    if block_count[ftype] > args.maxsamples: return
-
-    # Collect the data points
-
-    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
-    p1 = Popen(cmd,stdout=PIPE,stderr=PIPE)
-    res          = p1.communicate()
-    if not res[0] and not res[1]:
-        return                  # no data, no problem (might be a sampling issue)
-    vectors      = res[0].decode('utf-8').split('\n')
-    offsets      = res[1].decode('utf-8').split('\n')
-    if len(vectors)!=len(offsets):
-        print(offsets)
-        return
-
-    assert(len(vectors)==len(offsets))
-    
-    # Finally, add to the file
-    with open(args.outdir+"/"+ftype,"a") as f:
-        for (v,o) in zip(vectors,offsets):
-            if len(v)<5: continue # not possibly valid
-            try:
-                f.write("{}  # {}\n".format(v,o))
-                block_count[ftype] += 1
-            except OSError as e:
-                print("{} f.write error: {}".format(fname,str(e)))
-
-        file_count[ftype] += 1
-        print("{} {} {}".format(fname,ftype,block_count[ftype]))
-    
-
-confusion={}
-def confusion_file(fname):
-    """Process a file and report how each block is classified"""
-    ftype = get_ftype(fname)
-    cmd = [args.exe,'-b',str(args.train_blocksize),fname]
-    p1  = Popen(cmd,stdout=PIPE,stderr=PIPE)
-    res = p1.communicate()
-    r   = re.compile("(\d+)\s+([^ ]+)")
-    for line in res[0].decode('utf-8').split('\n'):
-        m = r.search(line)
-        if not m: continue
-        btype = m.group(2)
-        if ftype not in confusion: confusion[ftype] = {}
-        if btype not in confusion[ftype]: confusion[ftype][btype] = 0
-        confusion[ftype][btype] += 1
-    print(confusion)
-
-
-def process_fname_dir(files,func):
-    print("pf = ",files)
-        
-def train_files():
-    for fname in args.files:
-        if os.path.isfile(fname): train_file(fname)
-        if os.path.isdir(fname):
-            for (dirpath,dirnames,filenames) in os.walk(fname):
-                for filename in filenames:
-                    if filename[0:1]=='.': continue # ignore dot files
-                    train_file(os.path.join(dirpath,filename))
-    print("Counts of each block type:")
-    for (ftype,count) in sorted(block_count.items()):
-        print("{:10} {:10}".format(ftype,count))
-    
-def confusion_files():
-    for fname in args.files:
-        if os.path.isfile(fname): confusion_file(fname)
-        if os.path.isdir(fname):
-            for (dirpath,dirnames,filenames) in os.walk(fname):
-                for filename in filenames:
-                    if filename[0:1]=='.': continue # ignore dot files
-                    confusion_file(os.path.join(dirpath,filename))
-
-
-def train_buf(outfile,fn,offset,bufsize):
-    ftype = get_ftype(fn)
-    with open(fn,"rb") as fin:
-        cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
-        p1 = Popen(cmd,stdin=PIPE,stdout=PIPE)
-        fin.seek(offset)
-        p1.stdin.write(fin.read(bufsize))
-        fin.close()
-        res = p1.communicate()
-        vectors = res[0].decode('utf-8')
-        outfile.write(vectors)
-        block_count[ftype] += 1
-
-def run_grid():
-    from distutils.spawn import find_executable
-    train = find_executable('train')
-    
-def train_extractlog(fn):
-    dname = os.path.dirname(fn)
-    alerted = set()
-    count = 0
-    for line in open(fn):
-        (path,offset) = line.strip().split('\t')
-        fn = os.path.join(dname,path)
-        if not os.path.exists(fn):
-            if fn not in alerted:
-                alerted.add(fn)
-                print("Does not exist: {}".format(fn),file=sys.stderr)
-                continue
-        BLOCKSIZE = 512
-        train_buf(outfile,fn,int(offset)*BLOCKSIZE,BLOCKSIZE)
-        count += 1
-        if count%1000==0:
-            print("Processed {:,} blocks".format(count))
+#def get_ftype(fn):
+#    ftype = os.path.basename(os.path.dirname(fn))
+#    if ftype: return ftype.upper()
+#    ftype = os.path.splitext(fn.upper())[1][1:]
+#    return ftype_equivs.get(ftype,ftype)
+#    
+#def train_file(fname):
+#    """Process a file and send a list of vectors to output file"""
+#
+#    if args.minfilesize and os.path.getsize(fname) < args.minfilesize:
+#        print("Ignoring small file",fname)
+#        return
+#    
+#    ftype = get_ftype(fname)
+#
+#    # See if we need more of this type
+#    if block_count[ftype] > args.maxsamples: return
+#
+#    # Collect the data points
+#
+#    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
+#    p1 = Popen(cmd,stdout=PIPE,stderr=PIPE)
+#    res          = p1.communicate()
+#    if not res[0] and not res[1]:
+#        return                  # no data, no problem (might be a sampling issue)
+#    vectors      = res[0].decode('utf-8').split('\n')
+#    offsets      = res[1].decode('utf-8').split('\n')
+#    if len(vectors)!=len(offsets):
+#        print(offsets)
+#        return
+#
+#    assert(len(vectors)==len(offsets))
+#    
+#    # Finally, add to the file
+#    with open(args.outdir+"/"+ftype,"a") as f:
+#        for (v,o) in zip(vectors,offsets):
+#            if len(v)<5: continue # not possibly valid
+#            try:
+#                f.write("{}  # {}\n".format(v,o))
+#                block_count[ftype] += 1
+#            except OSError as e:
+#                print("{} f.write error: {}".format(fname,str(e)))
+#
+#        file_count[ftype] += 1
+#        print("{} {} {}".format(fname,ftype,block_count[ftype]))
+#    
+#
+#confusion={}
+#def confusion_file(fname):
+#    """Process a file and report how each block is classified"""
+#    ftype = get_ftype(fname)
+#    cmd = [args.exe,'-b',str(args.train_blocksize),fname]
+#    p1  = Popen(cmd,stdout=PIPE,stderr=PIPE)
+#    res = p1.communicate()
+#    r   = re.compile("(\d+)\s+([^ ]+)")
+#    for line in res[0].decode('utf-8').split('\n'):
+#        m = r.search(line)
+#        if not m: continue
+#        btype = m.group(2)
+#        if ftype not in confusion: confusion[ftype] = {}
+#        if btype not in confusion[ftype]: confusion[ftype][btype] = 0
+#        confusion[ftype][btype] += 1
+#    print(confusion)
+#
+#
+#def process_fname_dir(files,func):
+#    print("pf = ",files)
+#        
+#def train_files():
+#    for fname in args.files:
+#        if os.path.isfile(fname): train_file(fname)
+#        if os.path.isdir(fname):
+#            for (dirpath,dirnames,filenames) in os.walk(fname):
+#                for filename in filenames:
+#                    if filename[0:1]=='.': continue # ignore dot files
+#                    train_file(os.path.join(dirpath,filename))
+#    print("Counts of each block type:")
+#    for (ftype,count) in sorted(block_count.items()):
+#        print("{:10} {:10}".format(ftype,count))
+#    
+#def confusion_files():
+#    for fname in args.files:
+#        if os.path.isfile(fname): confusion_file(fname)
+#        if os.path.isdir(fname):
+#            for (dirpath,dirnames,filenames) in os.walk(fname):
+#                for filename in filenames:
+#                    if filename[0:1]=='.': continue # ignore dot files
+#                    confusion_file(os.path.join(dirpath,filename))
+#
+#
+#def train_buf(outfile,fn,offset,bufsize):
+#    ftype = get_ftype(fn)
+#    with open(fn,"rb") as fin:
+#        cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
+#        p1 = Popen(cmd,stdin=PIPE,stdout=PIPE)
+#        fin.seek(offset)
+#        p1.stdin.write(fin.read(bufsize))
+#        fin.close()
+#        res = p1.communicate()
+#        vectors = res[0].decode('utf-8')
+#        outfile.write(vectors)
+#        block_count[ftype] += 1
+#
+#def run_grid():
+#    from distutils.spawn import find_executable
+#    train = find_executable('train')
+#    
+#def train_extractlog(fn):
+#    dname = os.path.dirname(fn)
+#    alerted = set()
+#    count = 0
+#    for line in open(fn):
+#        (path,offset) = line.strip().split('\t')
+#        fn = os.path.join(dname,path)
+#        if not os.path.exists(fn):
+#            if fn not in alerted:
+#                alerted.add(fn)
+#                print("Does not exist: {}".format(fn),file=sys.stderr)
+#                continue
+#        BLOCKSIZE = 512
+#        train_buf(outfile,fn,int(offset)*BLOCKSIZE,BLOCKSIZE)
+#        count += 1
+#        if count%1000==0:
+#            print("Processed {:,} blocks".format(count))
         
 ################################################################
 ## Sample Selection
@@ -203,7 +203,7 @@ def split_data():
         pivot = int(len(files) * args.split)
         the_test_files[ftype] = files[0:pivot]
         the_train_files[ftype] = files[pivot:]
-    # Save in the shelf
+    # Save in the shelve
     db['test_files'] = the_test_files
     db['train_files'] = the_train_files
         
@@ -289,7 +289,10 @@ def generate_train_vectors_for_type(ftype):
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
     cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-']
+    if args.ngram_mode:
+        cmd += ['-n',str(args.ngram_mode)]
     db['train_blocksize'] = args.train_blocksize
+    db['vector_generation_cmd'] = " ".join(cmd)
     p = Popen(cmd,stdout=out,stdin=PIPE)
 
     ret = ""
@@ -374,6 +377,7 @@ def train_model():
     cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',str(c),train_file(),model_file()]
     t0 = time.time()
     call(cmd)
+    db['liblinear_train_command'] = " ".join(cmd)
     print("Time to train: {}".format(time.time()-t0))
 
 
@@ -393,9 +397,13 @@ def get_sceadan_score_for_filetype(ftype):
     if args.test_blocksize:
         cmd += ['-b',str(args.test_blocksize)]
     if not args.nomodel:
-        cmd += ['-m',model_file()]        
+        cmd += ['-m',model_file()]
+    if args.ngram_mode:
+        cmd += ['-n',args.ngram_mode]
     cmd += test_files(ftype)
-    print("cmd: "," ".join(cmd)[0:120],"...")
+    sceadan_classification_cmd = " ".join(cmd)
+    db['sceadan_classification_cmd'] = cmd
+    print("cmd:",db['sceadan_classification_cmd'][0:120])
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
     for line in res.split("\n"):
         if line=="": continue
@@ -457,9 +465,13 @@ def generate_confusion():
             t.append_data([''])
     txt_report = t.typeset(mode='text') +\
         "Train blocksize: {}\n".format(db['train_blocksize']) +\
-        "Test blockszie: {}\n".format(db['test_blocksize']) +\
-        "Overall accuracy: {:.0f}%\n".format((total_correct*100.0)/total_events) + \
-        "Average accuracy per class: {:.0f}%".format(percent_correct_sum/len(filetypes()))
+        "Test blocksize: {}\n".format(db['test_blocksize']) +\
+        "Overall accuracy: {:.1f}%\n".format((total_correct*100.0)/total_events) + \
+        "Average accuracy per class: {:.1f}%".format(percent_correct_sum/len(filetypes())) +\
+        "Vector generation command: {}\n".format(db['vector_generation_cmd']) +\
+        "Liblinear training command: {}\n".format(db['liblinear_train_command']) +\
+        "Sceadan classification command: {}\n".format(db['sceadan_classification_cmd'][0:120]) 
+
     openexp("confusion.txt","w").write(txt_report)
     print(txt_report)
         
@@ -475,12 +487,13 @@ is determined by the containing directory name. If there is no containing direct
 file type is determined by extension."""
 
 if __name__=="__main__":
-    import argparse,zipfile,os,time
+    import argparse,zipfile,os,time,shelve,datetime,shutil
     t0 = time.time()
     parser = argparse.ArgumentParser(description=help_text,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--data",help="Top directory of training/testing data",default='../DATA')
     parser.add_argument("--exp",help="Directory to hold experimental information",required=True)
+    parser.add_argument("--copyexp",help="Copy training data from this directory")
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
@@ -495,6 +508,7 @@ if __name__=="__main__":
     parser.add_argument('--epsilon',help='Error for training',type=float,default=0.01)
     parser.add_argument('--nogrid',help='Do not use a grid search to find c',action='store_true')
     parser.add_argument('--nomodel',help='Use built-in model',action='store_true')
+    parser.add_argument('--ngram_mode',help='ngram mode',type=str)
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
@@ -504,8 +518,16 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
+
     if not os.path.exists(args.exp):
         os.mkdir(args.exp)
+
+    if args.copyexp:
+        print("Copying training data from {} to {}".format(args.copyexp,args.exp))
+        for fn in ['experiment.db']:
+            shutil.copyfile(os.path.join(args.copyexp,fn),os.path.join(args.exp,fn))
+
+    print("Starting run at {}".format(time.asctime()))
 
     if args.note:
         with openexp("note.txt","a") as f:
@@ -519,8 +541,7 @@ if __name__=="__main__":
     #    train_extractlog(args.extractlog)
     #    exit(0)
 
-    import shelve
-    db = shelve.open(expname("experiment"))
+    db = shelve.open(expname("experiment.db"))
 
     split_data()
     print_data()
@@ -529,4 +550,6 @@ if __name__=="__main__":
         train_model()
     generate_confusion()
 
-    print("Elapsed time: {:10f} seconds".format(time.time()-t0))
+    sec = time.time() - t0
+    print("Elapsed time: {} ({:.0g} seconds)".format(
+            str(datetime.timedelta(seconds=sec)),sec))

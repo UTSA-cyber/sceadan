@@ -50,6 +50,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
 
 #ifdef HAVE_LINEAR_H
 #include <linear.h>
@@ -67,29 +68,26 @@
 
 /* definitions. Some will be moved out of this file */
 
-#define nbit_unigram (8)                // bits in a unigram
-#define nbit_bigram  (16)               /* number of bits in a bigram */
-#define n_unigram ((uint32_t) 1 << nbit_unigram) /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
-#define n_bigram  ((uint32_t) 1 << nbit_bigram)  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
+uint32_t const nbit_unigram=8;                // bits in a unigram
+uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
+#define n_unigram 256 /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
+#define n_bigram 65536 /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
 
 typedef uint8_t  unigram_t;  // unigram 
 typedef uint16_t bigram_t;   /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
 
 
 /* low  ascii range is  0x00 <= char < 0x20 */
-#define ASCII_LO_VAL (0x20)
+const uint32_t ASCII_LO_VAL=0x20;
 
 /* mid  ascii range is  0x20 <= char < 0x80 */
 
 /* high ascii range is   0x80 <= char */
-#define ASCII_HI_VAL (0x80)
-
-/* type for accumulators */
-typedef unsigned long long sum_t;
+const uint32_t ASCII_HI_VAL=0x80;
 
 /* type for summation/counting followed by floating point ops */
 typedef union {
-    sum_t  tot;
+    uint64_t  tot;
     double avg;
 } cv_e;
 
@@ -117,8 +115,7 @@ typedef struct {
     unigram_t const_chr[2];
 
     /* size of item */
-    sum_t  uni_sz;                      /* number of unigrams */
-    //sum_t  bi_sz;
+    uint64_t  uni_sz;                      /* number of unigrams */
 
     /*  Feature Name: Bi-gram Entropy
         Description : Shannon's entropy
@@ -226,9 +223,9 @@ extern struct sceadan_type_t sceadan_types[];
 struct sceadan_vectors {
     ucv_t ucv;                          /* unigram statistics */
     bcv_t bcv;                          /* bigram statistics */
-    mfv_t mfv;                          /* other statistics */
-    sum_t last_cnt;                     /* number of last_val's in previous block */
-    uint8_t last_val;                   /* last value from previous block */
+    mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.uni_sz */
+    uint8_t prev_value;                   /* last value from previous loop iteration */
+    uint64_t prev_count;                     /* number of prev_vals in a row*/
     const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
@@ -257,7 +254,7 @@ int sceadan_type_for_name(const sceadan *s,const char *name)
     return(-1);
 }
 
-static sum_t max ( const sum_t a, const sum_t b ) {
+static uint64_t max ( const uint64_t a, const uint64_t b ) {
     return a > b ? a : b;
 }
 
@@ -265,58 +262,44 @@ static sum_t max ( const sum_t a, const sum_t b ) {
 /* FUNCTIONS FOR VECTORS */
 static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
 {
-    const int sz_mod = v->mfv.uni_sz % 2; /* size mod 2. Parity of buf[0] apparently */
     for (size_t ndx = 0; ndx < sz; ndx++) { /* ndx is index within the buffer */
 
-        /* Compute the unigrams */
+        /* First update single-byte statistics */
+
         const unigram_t unigram = buf[ndx];
-        v->ucv[unigram].tot++;
+        v->ucv[unigram].tot++;          /* unigram counter */
 
-        /* Compute the bigrams */
-        unigram_t prev = v->last_val;
-        unigram_t next = unigram;
-
-        if(ndx==0){                     /* the first always gets counted (shoudn't this be if mfv.uni_sz==0? */
-            v->bcv[prev][next].tot++;
-            v->mfv.contiguity.tot += abs (next - prev);
-        } else if (ndx+1 < sz){
-            prev = unigram;
-            next = buf[ndx+1];
-            v->mfv.contiguity.tot += abs (next - prev); 
-            if (ndx % 2 == sz_mod) v->bcv[prev][next].tot++;               
-            
-        }
+        /* Histogram for ASCII value ranges */
+        if (unigram < ASCII_LO_VAL) v->mfv.lo_ascii_freq.tot++;
+        else if (unigram < ASCII_HI_VAL) v->mfv.med_ascii_freq.tot++;
+        else v->mfv.hi_ascii_freq.tot++;
 
         // total count of set bits (for hamming weight)
-        // this is wierd
         v->mfv.hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
+        v->mfv.byte_value.tot += unigram;              /* sum of byte values */
+        v->mfv.stddev_byte_val.tot += unigram*unigram; /* sum of squares */
 
-        // byte value sum
-        v->mfv.byte_value.tot += unigram;
+        /* Compute the bigram values if this is not the first character seen */
+        if (v->mfv.uni_sz>0){                 /* only process bigrams on characters >=1 */
+            int parity = v->mfv.uni_sz % 2;
 
-        // standard deviation of byte values
-        v->mfv.stddev_byte_val.tot += __builtin_powi ((double) unigram, 2);
+            if(s->ngram_mode==SCEADAN_NGRAM_MODE_OVERLAPPING ||
+               (s->ngram_mode==SCEADAN_NGRAM_MODE_DISJOINT && parity==0)){
+                v->bcv[v->prev_value][unigram].tot++;
+            }
 
-        /* Update the run counters */
-        if ((v->last_cnt > 0) && (v->last_val == unigram)){
-            v->last_cnt++;              /* run is extended */
-        } else {
-            v->last_cnt = 1;            /* new run */
-            v->last_val = unigram;
+            v->mfv.contiguity.tot += abs (unigram - v->prev_value);
+            if (v->prev_value==unigram) {
+                v->prev_count++;
+                v->mfv.max_byte_streak.tot = max(v->prev_count, v->mfv.max_byte_streak.tot);
+            } 
+        }
+        /* If this is the first, or if this is not the next in a streak, reset the counters */
+        if (v->mfv.uni_sz==0 || v->prev_value!=unigram){
+            v->prev_value = unigram;
+            v->prev_count = 1;
         }
 
-        v->mfv.max_byte_streak.tot = max (v->last_cnt, v->mfv.max_byte_streak.tot);
-
-        // count of low ascii values
-        if       (unigram < ASCII_LO_VAL) v->mfv.lo_ascii_freq.tot++;
-
-        // count of medium ascii values
-        else if (unigram < ASCII_HI_VAL) v->mfv.med_ascii_freq.tot++;
-
-        // count of high ascii values
-        else {
-            v->mfv.hi_ascii_freq.tot++;
-        }
         v->mfv.uni_sz ++;
     }
 }
@@ -406,16 +389,6 @@ static void vectors_finalize ( sceadan_vectors_t *v)
 
 static void build_nodes_from_vectors( const struct model* model_ , const sceadan_vectors_t *v, struct feature_node *x )
 {
-#if 0
-    int n;
-    int nr_feature=get_nr_feature(model_);
-    if(model_->bias>=0){
-        n=nr_feature+1;
-    } else {
-        n=nr_feature;
-    }
-#endif
-    
     int i = 0;
     
     /* Add the unigrams to the vector */
@@ -791,7 +764,7 @@ void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
 #endif
 }
 
-void sceadan_set_ngram_mode(sceadan *s,int mode)
+void sceadan_set_ngram_mode(sceadan *s,int ngram_mode)
 {
-    s->ngram_mode = mode;
+    s->ngram_mode = ngram_mode;
 }
