@@ -66,8 +66,10 @@
 
 uint32_t const nbit_unigram=8;                // bits in a unigram
 uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
+
 #define NUNIGRAMS 256 /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
 #define NBIGRAMS 65536 /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
+#define MAX_NR_ATTR (NBIGRAMS + NUNIGRAMS + 3) /* maximum number of attributes */
 
 typedef uint8_t  unigram_t;  /* unigram  */
 typedef uint16_t bigram_t;   /* bigram  two consecutive unigrams; (first<<8)|second */
@@ -213,7 +215,9 @@ extern struct sceadan_type_t sceadan_types[];
 // TODO full path vs relevant path may matter
 struct sceadan_vectors {
     ucv_t ucv;                          /* unigram statistics */
-    bcv_t bcv;                          /* bigram statistics */
+    bcv_t bcv_all;                      /* all bigram statistics */
+    bcv_t bcv_even;                     /* even bigram statistics */
+    bcv_t bcv_odd;                      /* odd bigram statistics */
     mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.unigram_count */
     uint8_t prev_value;                   /* last value from previous loop iteration */
     uint64_t prev_count;                     /* number of prev_vals in a row*/
@@ -262,6 +266,7 @@ static void build_nodes_from_vectors( const struct model* m , const sceadan_vect
     
     /* Add the unigrams to the vector */
     for (int k = 0 ; k < NUNIGRAMS; k++, i++) {
+        assert(i<MAX_NR_ATTR);
         x[i].index = i + 1;
         x[i].value = v->ucv[k].avg;
     }
@@ -269,18 +274,21 @@ static void build_nodes_from_vectors( const struct model* m , const sceadan_vect
     /* Add the bigrams to the vector */
     for (int k = 0; k < NUNIGRAMS; k++)
         for (int j = 0; j < NUNIGRAMS; j++) {
+            assert(i<MAX_NR_ATTR);
             x[i].index = i + 1;
-            x[i].value = v->bcv[k][j].avg;
+            x[i].value = v->bcv_all[k][j].avg;
             i++;
         }
     
     /* Add the Bias if we are using Bias */
     if(m->bias>=0)    {
+        assert(i<MAX_NR_ATTR);
         x[i].index = get_nr_feature(m)+1;
         x[i].value = m->bias;
         i++;
     }
-    x[i].index = -1; /* end of vectors */
+    x[i++].index = -1; /* end of vectors */
+    assert(i<MAX_NR_ATTR);
 }
 
 
@@ -305,14 +313,14 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     first = 1;
     for(int i=0;i<NUNIGRAMS;i++){
         for(int j=0;j<NUNIGRAMS;j++){
-            if(v->bcv[i][j].avg>0){
+            if(v->bcv_all[i][j].avg>0){
                 if(first){
                     first = 0;
                 } else {
                     printf(",\n");
                     first = 0;
                 }
-                printf("    \"%d\" : %.16lg",i<<8|j,v->bcv[i][j].avg);
+                printf("    \"%d\" : %.16lg",i<<8|j,v->bcv_all[i][j].avg);
             }
         }
     }
@@ -338,11 +346,12 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     printf("}\n");
 }
 
-static void dump_nodes(FILE *out,const sceadan *s,const struct feature_node *x,int max_nr_attr)
+static void dump_nodes(FILE *out,const sceadan *s,const struct feature_node *x)
 {
     fprintf(out,"%d ",s->file_type);
-    for(int i=0;i<max_nr_attr;i++){
-        if(x[i].index && x[i].value>0) fprintf(out,"%d:%g ",x[i].index,x[i].value);
+    for(int i=0;i<MAX_NR_ATTR;i++){
+        if (x[i].index && x[i].value>0) fprintf(out,"%d:%g ",x[i].index,x[i].value);
+        if (x[i].index == -1) break;
     }
     fputc('\n',out);
 }
@@ -376,7 +385,7 @@ static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t s
 
             if(s->ngram_mode==SCEADAN_NGRAM_MODE_OVERLAPPING ||
                (s->ngram_mode==SCEADAN_NGRAM_MODE_DISJOINT && parity==0)){
-                v->bcv[v->prev_value][unigram].tot++;
+                v->bcv_all[v->prev_value][unigram].tot++;
             }
 
             v->mfv.contiguity.tot += abs (unigram - v->prev_value);
@@ -430,11 +439,10 @@ static void vectors_finalize ( sceadan_vectors_t *v)
             
 
         for (int j = 0; j < NUNIGRAMS; j++) {
-
-            v->bcv[i][j].avg = (double) v->bcv[i][j].tot / (v->mfv.unigram_count / 2); // rounds down
+            v->bcv_all[i][j].avg = (double) v->bcv_all[i][j].tot / (v->mfv.unigram_count / 2); // rounds down
 
             // bigram entropy
-            pv = v->bcv[i][j].avg;
+            pv = v->bcv_all[i][j].avg;
             if (fabs(pv)>0) {
                 v->mfv.bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
             }
@@ -492,12 +500,11 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
         return 0;
     }
 
-    const int max_nr_attr = NBIGRAMS + NUNIGRAMS + 3; //+ /*20*/ 17 /*6 + 2 + 9*/;
-    struct feature_node *x = (struct feature_node *) calloc(max_nr_attr,sizeof(struct feature_node));
+    struct feature_node *x = (struct feature_node *) calloc(MAX_NR_ATTR,sizeof(struct feature_node));
     build_nodes_from_vectors(s->model,v, x);
     
     if(s->dump_nodes){
-        dump_nodes(s->dump_nodes,s,x,max_nr_attr);
+        dump_nodes(s->dump_nodes,s,x);
     } else {
         ret = predict(s->model,x);           /* run the liblinear predictor */
     }
