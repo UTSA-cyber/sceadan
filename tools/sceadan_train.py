@@ -286,8 +286,8 @@ def print_sample():
 def validate_train_file():
     print("Train file:",train_file())
     linecount = 0
-    for line in open(train_file,"r"):
-        items = line.split(" ")
+    for line in open(train_file(),"r"):
+        items = line.strip().split(" ")
         indexes = [int(v.split(":")[0]) for v in items[1:]]
         values  = [float(v.split(":")[0]) for v in items[1:]]
         assert(indexes==sorted(indexes))
@@ -537,6 +537,7 @@ if __name__=="__main__":
 
     if args.validate:
         print_data()
+        validate_train_file()
         exit(0)
 
     import dbm

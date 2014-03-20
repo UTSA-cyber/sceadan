@@ -72,6 +72,7 @@ uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 #define NUNIGRAMS 256   /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
 #define NBIGRAMS 65536  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
 #define MAX_NR_ATTR (NUNIGRAMS + NBIGRAMS*3 + 3) /* maximum number of attributes */
+#define bigramcode(f,s) ((f<<8)+s)
 
 
 /* Liblinear index mapping: */
@@ -250,40 +251,46 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
 
 /** Create the sparse liblinear fature_node structure from the vectors used by sceadan. **/
 
+#define assert_and_set(i) {assert(set[i]==0);set[i]=1;}
+#define set_index_value(k,v) {assert(idx<MAX_NR_ATTR);x[idx].index = k; x[idx].value = v; idx++;}
 static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *v, struct feature_node *x )
 {
     int idx = 0;                        /* cannot exceed MAX_NR_ATTR */
+    int set[MAX_NR_ATTR];
+    memset(set,0,sizeof(set));
     
     /* Add the unigrams to the vector */
     for (int i = 0 ; i < NUNIGRAMS; i++) {
         if(v->ucv[i].avg > 0.0){
-            assert(idx<MAX_NR_ATTR);
-            x[idx].index = START_UNIGRAM + i;
-            x[idx].value = v->ucv[i].avg;
-            idx++;
+            set_index_value(START_UNIGRAM + i,v->ucv[i].avg)
         }
     }
     
     /* Add the bigrams to the vector */
-    for (int i = 0; i < NUNIGRAMS; i++) {
-        for (int j = 0; j < NUNIGRAMS; j++) {
-            if ((s->ngram_mode & 1) && (v->bcv_all[i][j].avg > 0.0)) {
-                assert(idx<MAX_NR_ATTR);
-                x[idx].index = START_BIGRAMS_ALL + (i<<8 | j);
-                x[idx].value = v->bcv_all[i][j].avg;
-                idx++;
+    if (s->ngram_mode & 1) {
+        for (int i = 0; i < NUNIGRAMS; i++) {
+            for (int j = 0; j < NUNIGRAMS; j++) {
+                if (v->bcv_all[i][j].avg > 0.0) {
+                    set_index_value(START_BIGRAMS_ALL+bigramcode(i,j), v->bcv_all[i][j].avg);
+                }
             }
-            if ((s->ngram_mode & 2) && (v->bcv_even[i][j].avg > 0.0)) {
-                assert(idx<MAX_NR_ATTR);
-                x[idx].index = START_BIGRAMS_EVEN + (i<<8 | j);
-                x[idx].value = v->bcv_even[i][j].avg;
-                idx++;
+        }
+    }
+    if (s->ngram_mode & 2) {
+        for (int i = 0; i < NUNIGRAMS; i++) {
+            for (int j = 0; j < NUNIGRAMS; j++) {
+                if (v->bcv_even[i][j].avg > 0.0) {
+                    set_index_value(START_BIGRAMS_EVEN+bigramcode(i,j), v->bcv_even[i][j].avg);
+                }
             }
-            if ((s->ngram_mode & 4) && (v->bcv_all[i][j].avg > 0.0)) {
-                assert(idx<MAX_NR_ATTR);
-                x[idx].index = START_BIGRAMS_ODD + (i<<8 | j);
-                x[idx].value = v->bcv_odd[i][j].avg;
-                idx++;
+        }
+    }
+    if (s->ngram_mode & 4) {
+        for (int i = 0; i < NUNIGRAMS; i++) {
+            for (int j = 0; j < NUNIGRAMS; j++) {
+                if (v->bcv_odd[i][j].avg > 0.0) {
+                    set_index_value(START_BIGRAMS_ODD+bigramcode(i,j), v->bcv_odd[i][j].avg);
+                }
             }
         }
     }
@@ -301,7 +308,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
 }
 
 
-static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
+    static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
 {
     printf("{ \"file_type\": %d,\n",s->file_type);
     if(v->file_name) printf("  \"file_name\": \"%s\",\n",v->file_name);
