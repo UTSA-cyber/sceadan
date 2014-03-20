@@ -1,3 +1,7 @@
+2014-03-20  Basic  <simsong@Dance.local>
+
+	* sceadan.c (vectors_finalize): removed __builtin_powi()s. They made the code hard to read and the non-portable speedup was negligible. 
+
 2014-02-24  Basic  <simsong@r4.ncr.nps.edu>
 
 	* sceadan.c: added <stdint.h>

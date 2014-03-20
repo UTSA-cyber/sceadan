@@ -52,6 +52,9 @@
 #include <math.h>
 #include <stdint.h>
 
+/* We require liblinear */
+#ifdef HAVE_LIBLINEAR
+
 #ifdef HAVE_LINEAR_H
 #include <linear.h>
 #endif
@@ -59,47 +62,35 @@
 #include <liblinear/linear.h>
 #endif
 
-#ifdef HAVE_LIBLINEAR
-
-
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 /* definitions. Some will be moved out of this file */
 
 uint32_t const nbit_unigram=8;                // bits in a unigram
 uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
-#define n_unigram 256 /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
-#define n_bigram 65536 /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
+#define NUNIGRAMS 256 /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
+#define NBIGRAMS 65536 /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
 
-typedef uint8_t  unigram_t;  // unigram 
-typedef uint16_t bigram_t;   /* bigram  - two consecutive unigrams;  TODO check whether endian-ness can be an issue */
+typedef uint8_t  unigram_t;  /* unigram  */
+typedef uint16_t bigram_t;   /* bigram  two consecutive unigrams; (first<<8)|second */
 
-
-/* low  ascii range is  0x00 <= char < 0x20 */
-const uint32_t ASCII_LO_VAL=0x20;
-
-/* mid  ascii range is  0x20 <= char < 0x80 */
-
-/* high ascii range is   0x80 <= char */
-const uint32_t ASCII_HI_VAL=0x80;
+const uint32_t ASCII_LO_VAL=0x20;   /* low  ascii range is  0x00 <= char < 0x20 */
+                                    /* mid  ascii range is  0x20 <= char < 0x80 */
+const uint32_t ASCII_HI_VAL=0x80;   /* high ascii range is   0x80 <= char */
 
 /* type for summation/counting followed by floating point ops */
 typedef union {
     uint64_t  tot;
-    double avg;
+    double    avg;
 } cv_e;
 
 /* unigram count vector map unigram to count, then to frequency
    implements the probability distribution function for unigrams TODO
    beware of overflow more implementations */
-typedef cv_e ucv_t[n_unigram];
+typedef cv_e ucv_t[NUNIGRAMS];
 
 /* bigram count vector map bigram to count, then to frequency
    implements the probability distribution function for bigrams TODO
    beware of overflow more implementations */
-typedef cv_e bcv_t[n_unigram][n_unigram];
+typedef cv_e bcv_t[NUNIGRAMS][NUNIGRAMS];
 
 typedef enum {
     ID_UNDEF = 0,
@@ -115,7 +106,7 @@ typedef struct {
     unigram_t const_chr[2];
 
     /* size of item */
-    uint64_t  uni_sz;                      /* number of unigrams */
+    uint64_t  unigram_count;                      /* number of unigrams */
 
     /*  Feature Name: Bi-gram Entropy
         Description : Shannon's entropy
@@ -223,19 +214,21 @@ extern struct sceadan_type_t sceadan_types[];
 struct sceadan_vectors {
     ucv_t ucv;                          /* unigram statistics */
     bcv_t bcv;                          /* bigram statistics */
-    mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.uni_sz */
+    mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.unigram_count */
     uint8_t prev_value;                   /* last value from previous loop iteration */
     uint64_t prev_count;                     /* number of prev_vals in a row*/
     const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
 
-#define MODEL ("model")                 /* default model file */
+#define MODEL_DEFAULT_FILENAME ("model")                 /* default model file */
 
 #define RANDOMNESS_THRESHOLD (.995)     /* ignore things more random than this */
 #define UCV_CONST_THRESHOLD  (.5)       /* ignore UCV more than this */
 #define BCV_CONST_THRESHOLD  (.5)       /* ignore BCV more than this */
 
+inline double square(double v) { return v*v;}
+inline double cube(double v)   { return v*v*v;}
 
 const char *sceadan_name_for_type(const sceadan *s,int code)
 {
@@ -259,159 +252,35 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
 }
 
 
-/* FUNCTIONS FOR VECTORS */
-static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
-{
-    for (size_t ndx = 0; ndx < sz; ndx++) { /* ndx is index within the buffer */
+/****************************************************************
+ *** liblinear node/vector interface
+ ****************************************************************/
 
-        /* First update single-byte statistics */
-
-        const unigram_t unigram = buf[ndx];
-        v->ucv[unigram].tot++;          /* unigram counter */
-
-        /* Histogram for ASCII value ranges */
-        if (unigram < ASCII_LO_VAL) v->mfv.lo_ascii_freq.tot++;
-        else if (unigram < ASCII_HI_VAL) v->mfv.med_ascii_freq.tot++;
-        else v->mfv.hi_ascii_freq.tot++;
-
-        // total count of set bits (for hamming weight)
-        v->mfv.hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
-        v->mfv.byte_value.tot += unigram;              /* sum of byte values */
-        v->mfv.stddev_byte_val.tot += unigram*unigram; /* sum of squares */
-
-        /* Compute the bigram values if this is not the first character seen */
-        if (v->mfv.uni_sz>0){                 /* only process bigrams on characters >=1 */
-            int parity = v->mfv.uni_sz % 2;
-
-            if(s->ngram_mode==SCEADAN_NGRAM_MODE_OVERLAPPING ||
-               (s->ngram_mode==SCEADAN_NGRAM_MODE_DISJOINT && parity==0)){
-                v->bcv[v->prev_value][unigram].tot++;
-            }
-
-            v->mfv.contiguity.tot += abs (unigram - v->prev_value);
-            if (v->prev_value==unigram) {
-                v->prev_count++;
-                v->mfv.max_byte_streak.tot = max(v->prev_count, v->mfv.max_byte_streak.tot);
-            } 
-        }
-        /* If this is the first, or if this is not the next in a streak, reset the counters */
-        if (v->mfv.uni_sz==0 || v->prev_value!=unigram){
-            v->prev_value = unigram;
-            v->prev_count = 1;
-        }
-
-        v->mfv.uni_sz ++;
-    }
-}
-
-static void vectors_finalize ( sceadan_vectors_t *v)
-{
-    // hamming weight
-    v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot / (v->mfv.uni_sz * nbit_unigram);
-
-    // mean byte value
-    v->mfv.byte_value.avg = (double) v->mfv.byte_value.tot / v->mfv.uni_sz;
-
-    // average contiguity between bytes
-    v->mfv.contiguity.avg = (double) v->mfv.contiguity.tot / v->mfv.uni_sz;
-
-    // max byte streak
-    //v->mfv.max_byte_streak = max_cnt;
-    v->mfv.max_byte_streak.avg = (double) v->mfv.max_byte_streak.tot / v->mfv.uni_sz;
-
-    // TODO skewness ?
-    double expectancy_x3 = 0;
-    double expectancy_x4 = 0;
-
-    const double central_tendency = v->mfv.byte_value.avg;
-    for (int i = 0; i < n_unigram; i++) {
-
-        v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
-
-        // unigram frequency
-        v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.uni_sz;
-
-        // item entropy
-        double pv = v->ucv[i].avg;
-        if (fabs(pv)>0) // TODO floating point mumbo jumbo
-            v->mfv.item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
-
-        for (int j = 0; j < n_unigram; j++) {
-
-            v->bcv[i][j].avg = (double) v->bcv[i][j].tot / (v->mfv.uni_sz / 2); // rounds down
-
-            // bigram entropy
-            pv = v->bcv[i][j].avg;
-            if (fabs(pv)>0) // TODO
-                v->mfv.bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
-        }
-
-        const double extmp = __builtin_powi ((double) i, 3) * v->ucv[i].avg;
-
-        expectancy_x3 += extmp;        // for skewness
-        expectancy_x4 += extmp * i;     // for kurtosis
-    }
-
-    const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.uni_sz
-        - __builtin_powi (v->mfv.byte_value.avg, 2);
-
-    v->mfv.stddev_byte_val.avg = sqrt (variance);
-
-    const double sigma3    = variance * v->mfv.stddev_byte_val.avg;
-    const double variance2 = __builtin_powi (variance, 2);
-
-    // average absolute deviation
-    v->mfv.abs_dev /= v->mfv.uni_sz;
-    v->mfv.abs_dev /= n_unigram;
-
-    // skewness
-    v->mfv.skewness = (expectancy_x3
-                     - v->mfv.byte_value.avg * (3 * variance
-	                                      + __builtin_powi (v->mfv.byte_value.avg,
-	                                                        2))) / sigma3;
-
-    // kurtosis
-    assert(isinf(expectancy_x4)==0);
-    assert(isinf(variance2)==0);
-
-    v->mfv.kurtosis = (expectancy_x4 / variance2);
-    v->mfv.byte_value.avg      /= n_unigram;
-    v->mfv.stddev_byte_val.avg /= n_unigram;
-    v->mfv.kurtosis            /= n_unigram;
-    v->mfv.contiguity.avg      /= n_unigram;
-    //v->mfv.bzip2_len.avg        = 1;
-    //v->mfv.lzw_len.avg          = 1;
-    v->mfv.lo_ascii_freq.avg  = (double) v->mfv.lo_ascii_freq.tot  / v->mfv.uni_sz;
-    v->mfv.med_ascii_freq.avg = (double) v->mfv.med_ascii_freq.tot / v->mfv.uni_sz;
-    v->mfv.hi_ascii_freq.avg  = (double) v->mfv.hi_ascii_freq.tot  / v->mfv.uni_sz;
-}
-
-
-static void build_nodes_from_vectors( const struct model* model_ , const sceadan_vectors_t *v, struct feature_node *x )
+static void build_nodes_from_vectors( const struct model* m , const sceadan_vectors_t *v, struct feature_node *x )
 {
     int i = 0;
     
     /* Add the unigrams to the vector */
-    for (int k = 0 ; k < n_unigram; k++, i++) {
+    for (int k = 0 ; k < NUNIGRAMS; k++, i++) {
         x[i].index = i + 1;
         x[i].value = v->ucv[k].avg;
     }
     
     /* Add the bigrams to the vector */
-    for (int k = 0; k < n_unigram; k++)
-        for (int j = 0; j < n_unigram; j++) {
+    for (int k = 0; k < NUNIGRAMS; k++)
+        for (int j = 0; j < NUNIGRAMS; j++) {
             x[i].index = i + 1;
             x[i].value = v->bcv[k][j].avg;
             i++;
         }
     
     /* Add the Bias if we are using Bias */
-    if(model_->bias>=0)    {
-        x[i].index = get_nr_feature(model_)+1;
-        x[i].value = model_->bias;
+    if(m->bias>=0)    {
+        x[i].index = get_nr_feature(m)+1;
+        x[i].value = m->bias;
         i++;
     }
-    x[i].index = -1;                    /* end of vectors? */
+    x[i].index = -1; /* end of vectors */
 }
 
 
@@ -421,7 +290,7 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     if(v->file_name) printf("  \"file_name\": \"%s\",\n",v->file_name);
     printf("  \"unigrams\": { \n");
     int first = 1;
-    for(int i=0;i<n_unigram;i++){
+    for(int i=0;i<NUNIGRAMS;i++){
         if(v->ucv[i].avg>0){
             if(first) {
                 first = 0;
@@ -434,8 +303,8 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     printf("  },\n");
     printf("  \"bigrams:\": { \n");
     first = 1;
-    for(int i=0;i<n_unigram;i++){
-        for(int j=0;j<n_unigram;j++){
+    for(int i=0;i<NUNIGRAMS;i++){
+        for(int j=0;j<NUNIGRAMS;j++){
             if(v->bcv[i][j].avg>0){
                 if(first){
                     first = 0;
@@ -469,13 +338,140 @@ static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
     printf("}\n");
 }
 
-static void dump_nodes(const sceadan *s,const struct feature_node *x,int max_nr_attr)
+static void dump_nodes(FILE *out,const sceadan *s,const struct feature_node *x,int max_nr_attr)
 {
-    fprintf(s->dump_nodes,"%d ",s->file_type);
+    fprintf(out,"%d ",s->file_type);
     for(int i=0;i<max_nr_attr;i++){
-        if(x[i].index && x[i].value>0) fprintf(s->dump_nodes,"%d:%g ",x[i].index,x[i].value);
+        if(x[i].index && x[i].value>0) fprintf(out,"%d:%g ",x[i].index,x[i].value);
     }
-    fputc('\n',s->dump_nodes);
+    fputc('\n',out);
+}
+
+/****************************************************************
+ *** VECTOR GENERATION FUNCTIONS
+ ****************************************************************/
+
+static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t sz, sceadan_vectors_t *v)
+{
+    for (size_t ndx = 0; ndx < sz; ndx++) { /* ndx is index within the buffer */
+
+        /* First update single-byte statistics */
+
+        const unigram_t unigram = buf[ndx];
+        v->ucv[unigram].tot++;          /* unigram counter */
+
+        /* Histogram for ASCII value ranges */
+        if (unigram < ASCII_LO_VAL) v->mfv.lo_ascii_freq.tot++;
+        else if (unigram < ASCII_HI_VAL) v->mfv.med_ascii_freq.tot++;
+        else v->mfv.hi_ascii_freq.tot++;
+
+        // total count of set bits (for hamming weight)
+        v->mfv.hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
+        v->mfv.byte_value.tot += unigram;              /* sum of byte values */
+        v->mfv.stddev_byte_val.tot += unigram*unigram; /* sum of squares */
+
+        /* Compute the bigram values if this is not the first character seen */
+        if (v->mfv.unigram_count>0){                 /* only process bigrams on characters >=1 */
+            int parity = v->mfv.unigram_count % 2;
+
+            if(s->ngram_mode==SCEADAN_NGRAM_MODE_OVERLAPPING ||
+               (s->ngram_mode==SCEADAN_NGRAM_MODE_DISJOINT && parity==0)){
+                v->bcv[v->prev_value][unigram].tot++;
+            }
+
+            v->mfv.contiguity.tot += abs (unigram - v->prev_value);
+            if (v->prev_value==unigram) {
+                v->prev_count++;
+                v->mfv.max_byte_streak.tot = max(v->prev_count, v->mfv.max_byte_streak.tot);
+            } 
+        }
+        /* If this is the first, or if this is not the next in a streak, reset the counters */
+        if (v->mfv.unigram_count==0 || v->prev_value!=unigram){
+            v->prev_value = unigram;
+            v->prev_count = 1;
+        }
+
+        v->mfv.unigram_count ++;
+    }
+}
+
+static void vectors_finalize ( sceadan_vectors_t *v)
+{
+    // hamming weight
+    v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot / (v->mfv.unigram_count * nbit_unigram);
+
+    // mean byte value
+    v->mfv.byte_value.avg = (double) v->mfv.byte_value.tot / v->mfv.unigram_count;
+
+    // average contiguity between bytes
+    v->mfv.contiguity.avg = (double) v->mfv.contiguity.tot / v->mfv.unigram_count;
+
+    // max byte streak
+    //v->mfv.max_byte_streak = max_cnt;
+    v->mfv.max_byte_streak.avg = (double) v->mfv.max_byte_streak.tot / v->mfv.unigram_count;
+
+    // TODO skewness ?
+    double expectancy_x3 = 0;
+    double expectancy_x4 = 0;
+
+    const double central_tendency = v->mfv.byte_value.avg;
+    for (int i = 0; i < NUNIGRAMS; i++) {
+
+        v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
+
+        // unigram frequency
+        v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.unigram_count;
+
+        // item entropy
+        double pv = v->ucv[i].avg;
+        if (fabs(pv)>0) {
+            v->mfv.item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
+        } 
+            
+
+        for (int j = 0; j < NUNIGRAMS; j++) {
+
+            v->bcv[i][j].avg = (double) v->bcv[i][j].tot / (v->mfv.unigram_count / 2); // rounds down
+
+            // bigram entropy
+            pv = v->bcv[i][j].avg;
+            if (fabs(pv)>0) {
+                v->mfv.bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
+            }
+        }
+
+        const double extmp = cube(i) * v->ucv[i].avg; 
+
+        expectancy_x3 += extmp;        // for skewness
+        expectancy_x4 += extmp * i;     // for kurtosis
+    }
+
+    const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.unigram_count - square(v->mfv.byte_value.avg);
+
+    v->mfv.stddev_byte_val.avg = sqrt (variance);
+
+    const double sigma3    = variance * v->mfv.stddev_byte_val.avg;
+    const double variance2 = square(variance);
+
+    // average absolute deviation
+    v->mfv.abs_dev /= v->mfv.unigram_count;
+    v->mfv.abs_dev /= NUNIGRAMS;
+
+    // skewness
+    v->mfv.skewness = (expectancy_x3 - v->mfv.byte_value.avg * (3 * variance + square (v->mfv.byte_value.avg))) / sigma3;
+
+    // kurtosis
+    assert(isinf(expectancy_x4)==0);
+    assert(isinf(variance2)==0);
+
+    v->mfv.kurtosis = (expectancy_x4 / variance2);
+    v->mfv.byte_value.avg      /= NUNIGRAMS;
+    v->mfv.stddev_byte_val.avg /= NUNIGRAMS;
+    v->mfv.kurtosis            /= NUNIGRAMS;
+    v->mfv.contiguity.avg      /= NUNIGRAMS;
+    v->mfv.lo_ascii_freq.avg  = (double) v->mfv.lo_ascii_freq.tot  / v->mfv.unigram_count;
+    v->mfv.med_ascii_freq.avg = (double) v->mfv.med_ascii_freq.tot / v->mfv.unigram_count;
+    v->mfv.hi_ascii_freq.avg  = (double) v->mfv.hi_ascii_freq.tot  / v->mfv.unigram_count;
 }
 
 /* predict the vectors with a model and return the predicted type.
@@ -488,53 +484,21 @@ static void dump_nodes(const sceadan *s,const struct feature_node *x,int max_nr_
  */
 static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
 {
-    //bool dumping = s->dump_nodes || s->dump_json;
+    int ret = 0;
 
+    vectors_finalize(s->v);
     if(s->dump_json){                        /* dumping, not predicting */
         dump_vectors_as_json(s,v);
         return 0;
     }
 
-#if 0
-    if (v->mfv.item_entropy > RANDOMNESS_THRESHOLD) {
-        if(!dumping) return RAND;
-    }
-#endif    
-
-#if 0
-    for (int i = 0; i < n_unigram; i++) {
-        // TODO floating point comparison
-        if (v->ucv[i].avg > UCV_CONST_THRESHOLD) {
-            // previous programmer had an assignment here.
-            // but there is no need, and that makes v non-const
-            // slg
-            //v->mfv.const_chr[0] = i;       
-            if(!dumping) return UCV_CONST;
-        }
-        for (int j = 0; j < n_unigram; j++)
-            // previous programmer had an assignment here.
-            // but there is no need, and that makes v non-const
-            // slg
-            //v->mfv.const_chr[0] = i;       
-            if (v->bcv[i][j].avg > BCV_CONST_THRESHOLD) {
-                //v->mfv.const_chr[0] = i;
-                //v->mfv.const_chr[1] = j;
-                if(!dumping) return BCV_CONST;
-            }
-    }
-#endif
-    
-    const int max_nr_attr = n_bigram + n_unigram + 3;//+ /*20*/ 17 /*6 + 2 + 9*/;
+    const int max_nr_attr = NBIGRAMS + NUNIGRAMS + 3; //+ /*20*/ 17 /*6 + 2 + 9*/;
     struct feature_node *x = (struct feature_node *) calloc(max_nr_attr,sizeof(struct feature_node));
     build_nodes_from_vectors(s->model,v, x);
     
     if(s->dump_nodes){
-        dump_nodes(s,x,max_nr_attr);
-    } 
-
-    int ret = 0;
-
-    if(s->dump_nodes==0 && s->dump_json==0){
+        dump_nodes(s->dump_nodes,s,x,max_nr_attr);
+    } else {
         ret = predict(s->model,x);           /* run the liblinear predictor */
     }
     free(x);
@@ -542,17 +506,17 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
 }
 
 
-struct model *model_ = 0;
 const struct model *sceadan_model_default()
 {
-    if(model_==0){
-        model_=load_model(MODEL);
-        if(model_==0){
+    static struct model *default_model = 0;               /* this assures that the model will only be loaded once */
+    if(default_model==0){
+        default_model=load_model(MODEL_DEFAULT_FILENAME);
+        if(default_model==0){
             fprintf(stderr,"can't open model file %s\n","");
             return 0;
         }
     }
-    return model_;
+    return default_model;
 }
 
 void sceadan_model_dump(const struct model *model)
@@ -612,6 +576,7 @@ void sceadan_model_dump(const struct model *model)
         for(int j=0;j<nr_w;j++){
             printf("%.16lg",model->w[i*nr_w+j]);
             if(i!=w_size-1 || j!=nr_w-1) putchar(',');
+            if(j%10==9) printf("\n\t");
         }
         printf("\n\t");
     }
@@ -701,7 +666,6 @@ int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     vectors_update(s,buf, bufsize, &v);
-    vectors_finalize(&v);
     return sceadan_predict(s,&v);
 #else
     return -1;
@@ -718,7 +682,6 @@ void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
 int sceadan_classify(sceadan *s)
 {
 #ifdef HAVE_LIBLINEAR
-    vectors_finalize(s->v);
     int r = sceadan_predict(s,s->v);
     sceadan_clear(s);
     return r;
@@ -726,6 +689,10 @@ int sceadan_classify(sceadan *s)
     return -1;
 #endif
 }
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 int sceadan_classify_file(const sceadan *s,const char *file_name)
 {
