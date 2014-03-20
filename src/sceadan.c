@@ -219,8 +219,8 @@ typedef struct sceadan_vectors sceadan_vectors_t;
 #define UCV_CONST_THRESHOLD  (.5)       /* ignore UCV more than this */
 #define BCV_CONST_THRESHOLD  (.5)       /* ignore BCV more than this */
 
-inline double square(double v) { return v*v;}
-inline double cube(double v)   { return v*v*v;}
+static inline double square(double v) { return v*v;}
+static inline double cube(double v)   { return v*v*v;}
 
 const char *sceadan_name_for_type(const sceadan *s,int code)
 {
