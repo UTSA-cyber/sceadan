@@ -64,15 +64,24 @@
 
 /* definitions. Some will be moved out of this file */
 
+typedef uint8_t  unigram_t;  /* unigram  */
+typedef uint16_t bigram_t;   /* bigram  two consecutive unigrams; (first<<8)|second */
 uint32_t const nbit_unigram=8;                // bits in a unigram
 uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 
-#define NUNIGRAMS 256 /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
-#define NBIGRAMS 65536 /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
-#define MAX_NR_ATTR (NBIGRAMS + NUNIGRAMS + 3) /* maximum number of attributes */
+#define NUNIGRAMS 256   /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
+#define NBIGRAMS 65536  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
+#define MAX_NR_ATTR (NUNIGRAMS + NBIGRAMS*3 + 3) /* maximum number of attributes */
 
-typedef uint8_t  unigram_t;  /* unigram  */
-typedef uint16_t bigram_t;   /* bigram  two consecutive unigrams; (first<<8)|second */
+
+/* Liblinear index mapping: */
+#define START_UNIGRAM 1  /* 1..256 - unigram counts */
+#define START_BIGRAMS_ALL 257 /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
+#define START_BIGRAMS_EVEN 257+65536 /*  257+65536+FS - even bigram counts for bigram FS */
+#define START_BIGRAMS_ODD  257+65536*2 /* 257+65536*2+S - odd bigram counts for bigram FS */
+
+
+/* Tunable parameters */
 
 const uint32_t ASCII_LO_VAL=0x20;   /* low  ascii range is  0x00 <= char < 0x20 */
                                     /* mid  ascii range is  0x20 <= char < 0x80 */
@@ -94,19 +103,8 @@ typedef cv_e ucv_t[NUNIGRAMS];
    beware of overflow more implementations */
 typedef cv_e bcv_t[NUNIGRAMS][NUNIGRAMS];
 
-typedef enum {
-    ID_UNDEF = 0,
-    ID_CONTAINER,
-    ID_BLOCK
-} id_e;
-
 /* main feature vector */
 typedef struct {
-    const char *id_container;
-    size_t      id_block;
-
-    unigram_t const_chr[2];
-
     /* size of item */
     uint64_t  unigram_count;                      /* number of unigrams */
 
@@ -153,14 +151,6 @@ typedef struct {
        Description : Shows peakedness in the byte value distribution graph */
     double kurtosis;
 
-    /* Feature Name: Compressed item length - bzip2
-       Description : Uses Burrows-Wheeler algorithm; effective, slow */
-    //cv_e bzip2_len;
-
-    /* Feature Name: Compressed item length - LZW
-       Description : Lempel-Ziv-Welch algorithm; fast */
-    //cv_e lzw_len;
-
     /* Feature Name: Average contiguity between bytes
        Description : Average distance between consecutive byte values */
     cv_e contiguity;
@@ -169,8 +159,6 @@ typedef struct {
        Description : Length of longest streak of repeating bytes in item
        TODO normalize ? */
     cv_e  max_byte_streak;
-
-    // TODO longest common subsequence
 
     /* Feature Name: Low ASCII frequency
        Description : Frequency of bytes 0x00 .. 0x1F,
@@ -260,35 +248,56 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
  *** liblinear node/vector interface
  ****************************************************************/
 
-static void build_nodes_from_vectors( const struct model* m , const sceadan_vectors_t *v, struct feature_node *x )
+/** Create the sparse liblinear fature_node structure from the vectors used by sceadan. **/
+
+static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *v, struct feature_node *x )
 {
-    int i = 0;
+    int idx = 0;                        /* cannot exceed MAX_NR_ATTR */
     
     /* Add the unigrams to the vector */
-    for (int k = 0 ; k < NUNIGRAMS; k++, i++) {
-        assert(i<MAX_NR_ATTR);
-        x[i].index = i + 1;
-        x[i].value = v->ucv[k].avg;
+    for (int i = 0 ; i < NUNIGRAMS; i++) {
+        if(v->ucv[i].avg > 0.0){
+            assert(idx<MAX_NR_ATTR);
+            x[idx].index = START_UNIGRAM + i;
+            x[idx].value = v->ucv[i].avg;
+            idx++;
+        }
     }
     
     /* Add the bigrams to the vector */
-    for (int k = 0; k < NUNIGRAMS; k++)
+    for (int i = 0; i < NUNIGRAMS; i++) {
         for (int j = 0; j < NUNIGRAMS; j++) {
-            assert(i<MAX_NR_ATTR);
-            x[i].index = i + 1;
-            x[i].value = v->bcv_all[k][j].avg;
-            i++;
+            if ((s->ngram_mode & 1) && (v->bcv_all[i][j].avg > 0.0)) {
+                assert(idx<MAX_NR_ATTR);
+                x[idx].index = START_BIGRAMS_ALL + (i<<8 | j);
+                x[idx].value = v->bcv_all[i][j].avg;
+                idx++;
+            }
+            if ((s->ngram_mode & 2) && (v->bcv_even[i][j].avg > 0.0)) {
+                assert(idx<MAX_NR_ATTR);
+                x[idx].index = START_BIGRAMS_EVEN + (i<<8 | j);
+                x[idx].value = v->bcv_even[i][j].avg;
+                idx++;
+            }
+            if ((s->ngram_mode & 4) && (v->bcv_all[i][j].avg > 0.0)) {
+                assert(idx<MAX_NR_ATTR);
+                x[idx].index = START_BIGRAMS_ODD + (i<<8 | j);
+                x[idx].value = v->bcv_odd[i][j].avg;
+                idx++;
+            }
         }
-    
-    /* Add the Bias if we are using Bias */
-    if(m->bias>=0)    {
-        assert(i<MAX_NR_ATTR);
-        x[i].index = get_nr_feature(m)+1;
-        x[i].value = m->bias;
-        i++;
     }
-    x[i++].index = -1; /* end of vectors */
-    assert(i<MAX_NR_ATTR);
+    
+    /* Add the Bias if we are using Bias. It goes last, apparently */
+    if (s->model->bias >= 0 ) {
+        assert (idx < MAX_NR_ATTR) ;
+        x[ idx ].index = get_nr_feature( s->model ) + 1;
+        x[ idx ].value = s->model->bias;
+        idx++;
+    }
+    /* And note that we are at the end of the vectors */
+    assert (idx < MAX_NR_ATTR) ;
+    x[ idx++ ].index = -1; /* end of vectors */
 }
 
 
@@ -383,9 +392,11 @@ static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t s
         if (v->mfv.unigram_count>0){                 /* only process bigrams on characters >=1 */
             int parity = v->mfv.unigram_count % 2;
 
-            if(s->ngram_mode==SCEADAN_NGRAM_MODE_OVERLAPPING ||
-               (s->ngram_mode==SCEADAN_NGRAM_MODE_DISJOINT && parity==0)){
-                v->bcv_all[v->prev_value][unigram].tot++;
+            if (s->ngram_mode & 1) v->bcv_all[v->prev_value][unigram].tot++;
+            if (parity == 0) {
+                if (s->ngram_mode & 2) v->bcv_even[v->prev_value][unigram].tot++;
+            } else {
+                if (s->ngram_mode & 4) v->bcv_odd[v->prev_value][unigram].tot++;
             }
 
             v->mfv.contiguity.tot += abs (unigram - v->prev_value);
@@ -426,22 +437,26 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     const double central_tendency = v->mfv.byte_value.avg;
     for (int i = 0; i < NUNIGRAMS; i++) {
 
-        v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
-
         // unigram frequency
         v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.unigram_count;
 
+        v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
+
         // item entropy
+        // Currently calculated but not used 
         double pv = v->ucv[i].avg;
         if (fabs(pv)>0) {
             v->mfv.item_entropy += pv * log2 (1 / pv) / nbit_unigram; // more divisions for accuracy
         } 
             
-
+        // Normalize the bigram counts
         for (int j = 0; j < NUNIGRAMS; j++) {
-            v->bcv_all[i][j].avg = (double) v->bcv_all[i][j].tot / (v->mfv.unigram_count / 2); // rounds down
+            v->bcv_all[i][j].avg  = (double) v->bcv_all[i][j].tot / (v->mfv.unigram_count / 2); // rounds down
+            v->bcv_even[i][j].avg = (double) v->bcv_even[i][j].tot / (v->mfv.unigram_count / 4); // rounds down
+            v->bcv_odd[i][j].avg = (double) v->bcv_odd[i][j].tot / (v->mfv.unigram_count / 4); // rounds down
 
             // bigram entropy
+            // Currently calculated but not used 
             pv = v->bcv_all[i][j].avg;
             if (fabs(pv)>0) {
                 v->mfv.bigram_entropy  += pv * log2 (1 / pv) / nbit_bigram;
@@ -501,7 +516,7 @@ static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
     }
 
     struct feature_node *x = (struct feature_node *) calloc(MAX_NR_ATTR,sizeof(struct feature_node));
-    build_nodes_from_vectors(s->model,v, x);
+    build_nodes_from_vectors(s,v, x);
     
     if(s->dump_nodes){
         dump_nodes(s->dump_nodes,s,x);
