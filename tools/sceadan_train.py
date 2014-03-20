@@ -151,6 +151,24 @@ ftype_equivs = {"JPEG":"JPG",
 #            print("Processed {:,} blocks".format(count))
         
 ################################################################
+### Utilitiy functions
+################################################################
+
+def expname(fn):
+    return os.path.join(args.exp,fn)
+
+def openexp(fn,mode):
+    return open(expname(fn),mode)
+
+def train_file():
+    return os.path.join(args.exp,"vectors_to_train")
+
+def model_file():
+    return os.path.join(args.exp,"model")
+
+
+
+################################################################
 ## Sample Selection
 ################################################################
 
@@ -265,23 +283,16 @@ def print_sample():
             print("\n")
         print("\n")
     
-################################################################
-### Utilitiy functions
-################################################################
-
-def expname(fn):
-    return os.path.join(args.exp,fn)
-
-def openexp(fn,mode):
-    return open(expname(fn),mode)
-
-def train_file():
-    return os.path.join(args.exp,"vectors_to_train")
-
-def model_file():
-    return os.path.join(args.exp,"model")
-
-
+def validate_train_file():
+    print("Train file:",train_file())
+    linecount = 0
+    for line in open(train_file,"r"):
+        items = line.split(" ")
+        indexes = [int(v.split(":")[0]) for v in items[1:]]
+        values  = [float(v.split(":")[0]) for v in items[1:]]
+        assert(indexes==sorted(indexes))
+        linecount += 1
+    print("Total validated lines:",linecount)
 
 ################################################################
 ## Training Vector Generation
@@ -515,10 +526,10 @@ if __name__=="__main__":
     parser.add_argument('--nomodel',help='Use built-in model',action='store_true')
     parser.add_argument('--ngram_mode',help='ngram mode',type=str)
     parser.add_argument('--validate',help='Just validate the test data',action='store_true')
+    parser.add_argument("--dbdump",help="Dump the named database")
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
-    #parser.add_argument('--extractlog',help='Recreate a training set with an extract log. The embedded filenames are relative to the location fo the extract.out log.',type=str)
     #parser.add_argument('--maxsamples',help='Number of samples needed for each type',default=10000,type=int)
     #parser.add_argument('--minfilesize',default=None,type=int)
 
@@ -526,6 +537,13 @@ if __name__=="__main__":
 
     if args.validate:
         print_data()
+        exit(0)
+
+    import dbm
+    if args.dbdump:
+        db = shelve.DbfilenameShelf(args.dbdump)
+        for (key,val) in db:
+            print("{}={}",(key,val))
         exit(0)
 
     if not args.exp:
@@ -549,11 +567,7 @@ if __name__=="__main__":
 
     t0 = time.time()
 
-    #if args.extractlog:
-    #    train_extractlog(args.extractlog)
-    #    exit(0)
-
-    db = shelve.open(expname("experiment.db"))
+    db = shelve.DbfilenameShelf(expname("experiment"))
 
     split_data()
     print_data()
