@@ -75,20 +75,38 @@ uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 
 
 /* Liblinear index mapping: */
-const int START_UNIGRAMS=1;  /* 1..256 - unigram counts */
-const int START_BIGRAMS_ALL=START_UNIGRAMS+NUNIGRAMS; /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
-const int START_BIGRAMS_EVEN=START_BIGRAMS_ALL+NBIGRAMS; /*  257+65536+FS - even bigram counts for bigram FS */
-const int START_BIGRAMS_ODD=START_BIGRAMS_EVEN+NBIGRAMS; /* 257+65536*2+S - odd bigram counts for bigram FS */
-const int MAX_NR_ATTR=START_BIGRAMS_ODD+3;
+static const int START_UNIGRAMS=1;  /* 1..256 - unigram counts */
+static const int START_BIGRAMS_ALL=START_UNIGRAMS+NUNIGRAMS; /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
+static const int START_BIGRAMS_EVEN = START_BIGRAMS_ALL  + NBIGRAMS; /*  257+65536+FS - even bigram counts for bigram FS */
+static const int START_BIGRAMS_ODD  = START_BIGRAMS_EVEN + NBIGRAMS; /* 257+65536*2+S - odd bigram counts for bigram FS */
+static const int START_STATS        = START_BIGRAMS_ODD  + NBIGRAMS;
+static const int STATS_IDX_BIGRAM_ENTROPY              = START_STATS + 0;
+static const int STATS_IDX_ITEM_ENTROPY                = START_STATS + 1;
+static const int STATS_IDX_HAMMING_WEIGHT              = START_STATS + 2;
+static const int STATS_IDX_MEAN_BYTE_VALUE             = START_STATS + 3;
+static const int STATS_IDX_STDDEV_BYTE_VAL             = START_STATS + 4;
+static const int STATS_IDX_ABS_DEV                     = START_STATS + 5;
+static const int STATS_IDX_SKEWNESS                    = START_STATS + 6;
+static const int STATS_IDX_KURTOSIS                    = START_STATS + 7;
+static const int STATS_IDX_CONTIGUITY                  = START_STATS + 8;
+static const int STATS_IDX_MAX_BYTE_STREAK             = START_STATS + 9;
+static const int STATS_IDX_LO_ASCII_FREQ               = START_STATS + 10;
+static const int STATS_IDX_MED_ASCII_FREQ              = START_STATS + 11;
+static const int STATS_IDX_HI_ASCII_FREQ               = START_STATS + 12;
+static const int STATS_IDX_BYTE_VAL_CORRELATION        = START_STATS + 13;
+static const int STATS_IDX_BYTE_VAL_FREQ_CORRELATION   = START_STATS + 14;
+static const int STATS_IDX_UNI_CHI_SQ                  = START_STATS + 15;
+static const int MAX_NR_ATTR        = START_STATS+16;
 
 /* Tunable parameters */
 
-const uint32_t ASCII_LO_VAL=0x20;   /* low  ascii range is  0x00 <= char < 0x20 */
-                                    /* mid  ascii range is  0x20 <= char < 0x80 */
-const uint32_t ASCII_HI_VAL=0x80;   /* high ascii range is   0x80 <= char */
+const uint32_t ASCII_LO_VAL=0x20;   /* low  ascii range is  0x00 <= char < ASCII_LOW_VALUE0 */
+const uint32_t ASCII_HI_VAL=0x80;   /* high ascii range is   ASCII_HI_VAL <= char */
 
-/* type for summation/counting followed by floating point ops */
-typedef union {
+/* type for summation/counting followed by floating point ops.
+ * The original programmer had this as a union, which is just asking for trouble.
+ */
+typedef struct {
     uint64_t  tot;
     double    avg;
 } cv_e;
@@ -129,7 +147,7 @@ typedef struct {
     /* Feature Name: Mean Byte Value
        Description : Sum of all byte values in item divided by total size in bytes
        Note        : Only go to EOF if item is an allocated file */
-    cv_e byte_value;
+    cv_e mean_byte_value;
 
     /* Feature Name: Standard Deviation of Byte Values
        Description : Typical standard deviation formula */
@@ -142,18 +160,16 @@ typedef struct {
        TODO use median instead of mean */
     double abs_dev;
 
-    /* (from wikipedia:)
-       skewness is a measure of the asymmetry of the probability distribution of
+    /* SKEWNESS is a measure of the asymmetry of the probability distribution of
        a real-valued random variable */
     double skewness;
 
-    /* Feature Name: Kurtosis
-       Description : Shows peakedness in the byte value distribution graph */
+    /* KURTOSIS  Shows peakedness in the byte value distribution graph */
     double kurtosis;
 
     /* Feature Name: Average contiguity between bytes
        Description : Average distance between consecutive byte values */
-    cv_e contiguity;
+    cv_e  contiguity;
 
     /* Feature Name: Max Byte Streak
        Description : Length of longest streak of repeating bytes in item
@@ -261,7 +277,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     /* Add the unigrams to the vector */
     for (int i = 0 ; i < NUNIGRAMS; i++) {
         if(v->ucv[i].avg > 0.0){
-            set_index_value(START_UNIGRAM + i,v->ucv[i].avg)
+            set_index_value(START_UNIGRAMS + i,v->ucv[i].avg)
         }
     }
     
@@ -294,12 +310,27 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
         }
     }
     
+    set_index_value(STATS_IDX_BIGRAM_ENTROPY,  v->mfv.bigram_entropy);
+    set_index_value(STATS_IDX_ITEM_ENTROPY,    v->mfv.item_entropy);
+    set_index_value(STATS_IDX_HAMMING_WEIGHT,  v->mfv.hamming_weight.avg);
+    set_index_value(STATS_IDX_MEAN_BYTE_VALUE, v->mfv.mean_byte_value.avg);
+    set_index_value(STATS_IDX_STDDEV_BYTE_VAL, v->mfv.stddev_byte_val.avg);
+    set_index_value(STATS_IDX_ABS_DEV,         v->mfv.abs_dev);
+    set_index_value(STATS_IDX_SKEWNESS,        v->mfv.skewness);
+    set_index_value(STATS_IDX_KURTOSIS,        v->mfv.kurtosis);
+    set_index_value(STATS_IDX_CONTIGUITY,      v->mfv.max_byte_streak.avg);
+    set_index_value(STATS_IDX_MAX_BYTE_STREAK, v->mfv.max_byte_streak.tot); /* don't normalize! */
+    set_index_value(STATS_IDX_LO_ASCII_FREQ,   v->mfv.lo_ascii_freq.avg);
+    set_index_value(STATS_IDX_MED_ASCII_FREQ,   v->mfv.med_ascii_freq.avg);
+    set_index_value(STATS_IDX_HI_ASCII_FREQ,   v->mfv.hi_ascii_freq.avg);
+    set_index_value(STATS_IDX_BYTE_VAL_CORRELATION, v->mfv.byte_val_correlation);
+    set_index_value(STATS_IDX_BYTE_VAL_FREQ_CORRELATION, v->mfv.byte_val_freq_correlation);
+    set_index_value(STATS_IDX_UNI_CHI_SQ,      v->mfv.uni_chi_sq);
+    
+
     /* Add the Bias if we are using Bias. It goes last, apparently */
     if (s->model->bias >= 0 ) {
-        assert (idx < MAX_NR_ATTR) ;
-        x[ idx ].index = get_nr_feature( s->model ) + 1;
-        x[ idx ].value = s->model->bias;
-        idx++;
+        set_index_value(get_nr_feature( s->model ) + 1, s->model->bias);
     }
     /* And note that we are at the end of the vectors */
     assert (idx < MAX_NR_ATTR) ;
@@ -344,7 +375,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     OUTPUT(bigram_entropy);
     OUTPUT(item_entropy);
     OUTPUT(hamming_weight.avg);
-    OUTPUT(byte_value.avg);
+    OUTPUT(mean_byte_value.avg);
     OUTPUT(stddev_byte_val.avg);
     OUTPUT(abs_dev);
     OUTPUT(skewness);
@@ -391,7 +422,7 @@ static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t s
 
         // total count of set bits (for hamming weight)
         v->mfv.hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
-        v->mfv.byte_value.tot += unigram;              /* sum of byte values */
+        v->mfv.mean_byte_value.tot += unigram;              /* sum of byte values */
         v->mfv.stddev_byte_val.tot += unigram*unigram; /* sum of squares */
 
         /* Compute the bigram values if this is not the first character seen */
@@ -427,7 +458,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     v->mfv.hamming_weight.avg = (double) v->mfv.hamming_weight.tot / (v->mfv.unigram_count * nbit_unigram);
 
     // mean byte value
-    v->mfv.byte_value.avg = (double) v->mfv.byte_value.tot / v->mfv.unigram_count;
+    v->mfv.mean_byte_value.avg = (double) v->mfv.mean_byte_value.tot / v->mfv.unigram_count;
 
     // average contiguity between bytes
     v->mfv.contiguity.avg = (double) v->mfv.contiguity.tot / v->mfv.unigram_count;
@@ -440,7 +471,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     double expectancy_x3 = 0;
     double expectancy_x4 = 0;
 
-    const double central_tendency = v->mfv.byte_value.avg;
+    const double central_tendency = v->mfv.mean_byte_value.avg;
     for (int i = 0; i < NUNIGRAMS; i++) {
 
         // unigram frequency
@@ -475,7 +506,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
         expectancy_x4 += extmp * i;     // for kurtosis
     }
 
-    const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.unigram_count - square(v->mfv.byte_value.avg);
+    const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.unigram_count - square(v->mfv.mean_byte_value.avg);
 
     v->mfv.stddev_byte_val.avg = sqrt (variance);
 
@@ -487,14 +518,14 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     v->mfv.abs_dev /= NUNIGRAMS;
 
     // skewness
-    v->mfv.skewness = (expectancy_x3 - v->mfv.byte_value.avg * (3 * variance + square (v->mfv.byte_value.avg))) / sigma3;
+    v->mfv.skewness = (expectancy_x3 - v->mfv.mean_byte_value.avg * (3 * variance + square (v->mfv.mean_byte_value.avg))) / sigma3;
 
     // kurtosis
     assert(isinf(expectancy_x4)==0);
     assert(isinf(variance2)==0);
 
     v->mfv.kurtosis = (expectancy_x4 / variance2);
-    v->mfv.byte_value.avg      /= NUNIGRAMS;
+    v->mfv.mean_byte_value.avg      /= NUNIGRAMS;
     v->mfv.stddev_byte_val.avg /= NUNIGRAMS;
     v->mfv.kurtosis            /= NUNIGRAMS;
     v->mfv.contiguity.avg      /= NUNIGRAMS;
