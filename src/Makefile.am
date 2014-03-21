@@ -1,4 +1,4 @@
-SCEADAN = sceadan.c sceadan.h sceadan_model_precompiled.c
+SCEADAN = sceadan.cpp sceadan.h sceadan_model_precompiled.c
 EXTRA_DIST = model =model.ucv-bcv.20130509.c256.s2.e005
 
 bin_PROGRAMS = sceadan_app mcompile
