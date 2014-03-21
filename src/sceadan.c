@@ -71,16 +71,15 @@ uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 
 #define NUNIGRAMS 256   /* number of possible unigrams   = 2 ** 8 (needs at least 9 bits) */
 #define NBIGRAMS 65536  /* number of possible bigrams = 2 ** 16 (needs at least 17 bits) */
-#define MAX_NR_ATTR (NUNIGRAMS + NBIGRAMS*3 + 3) /* maximum number of attributes */
 #define bigramcode(f,s) ((f<<8)+s)
 
 
 /* Liblinear index mapping: */
-#define START_UNIGRAM 1  /* 1..256 - unigram counts */
-#define START_BIGRAMS_ALL 257 /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
-#define START_BIGRAMS_EVEN 257+65536 /*  257+65536+FS - even bigram counts for bigram FS */
-#define START_BIGRAMS_ODD  257+65536*2 /* 257+65536*2+S - odd bigram counts for bigram FS */
-
+const int START_UNIGRAMS=1;  /* 1..256 - unigram counts */
+const int START_BIGRAMS_ALL=START_UNIGRAMS+NUNIGRAMS; /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
+const int START_BIGRAMS_EVEN=START_BIGRAMS_ALL+NBIGRAMS; /*  257+65536+FS - even bigram counts for bigram FS */
+const int START_BIGRAMS_ODD=START_BIGRAMS_EVEN+NBIGRAMS; /* 257+65536*2+S - odd bigram counts for bigram FS */
+const int MAX_NR_ATTR=START_BIGRAMS_ODD+3;
 
 /* Tunable parameters */
 
