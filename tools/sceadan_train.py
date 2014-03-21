@@ -16,6 +16,7 @@ from collections import defaultdict
 
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
+OpenMP_j    = 4                            # since we compiled with OpenMP, -j4 is enough
 
 
 ftype_equivs = {"JPEG":"JPG",
@@ -361,7 +362,7 @@ def train_model():
     dataset_out = os.path.join(args.exp,'dataset.out')
     if not args.nogrid:
         cmd  = [sys.executable,'grid.py']
-        cmd += ['-j','2']             # since we compile with OpenMP, -2 is enough
+        cmd += ['-j',str(OpenMP_j)]             # since we compile with OpenMP, -4 is enough
         cmd += ['-log2g','null','-gnuplot','null']
         cmd += ['-svmtrain',args.trainexe]
         cmd += ['-out',dataset_out]

@@ -1,4 +1,4 @@
-subdirs = doc src tools
+SUBDIRS = doc src tools
 ACLOCAL_AMFLAGS = -I m4
 
 .PHONY: pull
