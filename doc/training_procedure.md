@@ -15,10 +15,13 @@ building a custom classifier:
 1. Download sceadan if you don't have it:
 
    $ git clone --recursive git@github.com:nbeebe/sceadan.git
+   $ cd sceadan
 
-2. Compile sceadan and run the self-test
+2. Run bootstrap to make configure if you don't have it. Then run configure:
 
-   $ (cd src ; ./configure ; make ; make check)
+   $ sh bootstrap.sh
+   $ ./configure
+   $ make
 
 3. Make a list of the file types that you wish to classify.
 
