@@ -4,13 +4,25 @@ Training Sceadan
 This document describes the procedure for training Sceadan and
 building a custom classifier:
 
-1. Compile sceadan and run the self-test
+1. Sceadan is a C++ program that uses liblinear. You will need the following tools and libraries installed:
+
+   c++ automake autoconf liblinear libm git-all
+
+   On Fedora you can install these with:
+
+   $ sudo yum install gcc-c++ automake autoconf liblinear liblinear-cli liblinear-doc
+
+1. Download sceadan if you don't have it:
+
+   $ git clone --recursive git@github.com:nbeebe/sceadan.git
+
+2. Compile sceadan and run the self-test
 
    $ (cd src ; ./configure ; make ; make check)
 
-2. Make a list of the file types that you wish to classify.
+3. Make a list of the file types that you wish to classify.
 
-3. Collect at least 40 samples of each file type, where the average file size is 100K - 1MB.
+4. Collect at least 40 samples of each file type, where the average file size is 100K - 1MB.
 
    [THIS DOESN'T WORK YET:]
    Ideally, the files should be from the country of interest.  If you
@@ -18,7 +30,7 @@ building a custom classifier:
    types with the ISO 639-1 language code. e.g. doc-EN, doc-ES, doc-AR  
    (http://www.loc.gov/standards/iso639-2/php/code_list.php)
 
-4. Place the files in a directory hiearchy DATA/TYPE/file  where TYPE
+5. Place the files in a directory hiearchy DATA/TYPE/file  where TYPE
    is the code above (e..g doc-EN, JPG, etc.)
 
    DATA/<filetype>/document1
@@ -32,9 +44,9 @@ building a custom classifier:
    DATA/docx/yet_another_file.docx
    ...
 
-5. cd tools
+6. cd tools
 
-6. Validate the training data with the sceadan_train.py program:
+7. Validate the training data with the sceadan_train.py program:
 
    $ python3 tools/sceadan_train.py --validate --data=DATA/ 
 
@@ -42,7 +54,7 @@ building a custom classifier:
    --data=      --- specifies data repository
 
 
-7. Try to train with 50% of the data for training and 50% for testing:
+8. Try to train with 50% of the data for training and 50% for testing:
 
    $ python3 tools/sceadan_train.py --data=DATA/  --exp=experiment1
 
