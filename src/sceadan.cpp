@@ -310,22 +310,22 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
         }
     }
     
-    set_index_value(STATS_IDX_BIGRAM_ENTROPY,  v->mfv.bigram_entropy);
-    set_index_value(STATS_IDX_ITEM_ENTROPY,    v->mfv.item_entropy);
-    set_index_value(STATS_IDX_HAMMING_WEIGHT,  v->mfv.hamming_weight.avg);
-    set_index_value(STATS_IDX_MEAN_BYTE_VALUE, v->mfv.mean_byte_value.avg);
-    set_index_value(STATS_IDX_STDDEV_BYTE_VAL, v->mfv.stddev_byte_val.avg);
-    set_index_value(STATS_IDX_ABS_DEV,         v->mfv.abs_dev);
-    set_index_value(STATS_IDX_SKEWNESS,        v->mfv.skewness);
-    set_index_value(STATS_IDX_KURTOSIS,        v->mfv.kurtosis);
-    set_index_value(STATS_IDX_CONTIGUITY,      v->mfv.max_byte_streak.avg);
-    set_index_value(STATS_IDX_MAX_BYTE_STREAK, v->mfv.max_byte_streak.tot); /* don't normalize! */
-    set_index_value(STATS_IDX_LO_ASCII_FREQ,   v->mfv.lo_ascii_freq.avg);
-    set_index_value(STATS_IDX_MED_ASCII_FREQ,   v->mfv.med_ascii_freq.avg);
-    set_index_value(STATS_IDX_HI_ASCII_FREQ,   v->mfv.hi_ascii_freq.avg);
-    set_index_value(STATS_IDX_BYTE_VAL_CORRELATION, v->mfv.byte_val_correlation);
-    set_index_value(STATS_IDX_BYTE_VAL_FREQ_CORRELATION, v->mfv.byte_val_freq_correlation);
-    set_index_value(STATS_IDX_UNI_CHI_SQ,      v->mfv.uni_chi_sq);
+    if (s->ngram_mode & 0x00008) { set_index_value(STATS_IDX_BIGRAM_ENTROPY,  v->mfv.bigram_entropy); }
+    if (s->ngram_mode & 0x00010) { set_index_value(STATS_IDX_ITEM_ENTROPY,    v->mfv.item_entropy); }
+    if (s->ngram_mode & 0x00020) { set_index_value(STATS_IDX_HAMMING_WEIGHT,  v->mfv.hamming_weight.avg); }
+    if (s->ngram_mode & 0x00040) { set_index_value(STATS_IDX_MEAN_BYTE_VALUE, v->mfv.mean_byte_value.avg); }
+    if (s->ngram_mode & 0x00080) { set_index_value(STATS_IDX_STDDEV_BYTE_VAL, v->mfv.stddev_byte_val.avg); }
+    if (s->ngram_mode & 0x00100) { set_index_value(STATS_IDX_ABS_DEV,         v->mfv.abs_dev); }
+    if (s->ngram_mode & 0x00200) { set_index_value(STATS_IDX_SKEWNESS,        v->mfv.skewness); }
+    if (s->ngram_mode & 0x00400) { set_index_value(STATS_IDX_KURTOSIS,        v->mfv.kurtosis); }
+    if (s->ngram_mode & 0x00800) { set_index_value(STATS_IDX_CONTIGUITY,      v->mfv.max_byte_streak.avg); }
+    if (s->ngram_mode & 0x01000) { set_index_value(STATS_IDX_MAX_BYTE_STREAK, v->mfv.max_byte_streak.tot); /* don't normalize! */ }
+    if (s->ngram_mode & 0x02000) { set_index_value(STATS_IDX_LO_ASCII_FREQ,   v->mfv.lo_ascii_freq.avg); }
+    if (s->ngram_mode & 0x04000) { set_index_value(STATS_IDX_MED_ASCII_FREQ,   v->mfv.med_ascii_freq.avg); }
+    if (s->ngram_mode & 0x08000) { set_index_value(STATS_IDX_HI_ASCII_FREQ,   v->mfv.hi_ascii_freq.avg); }
+    if (s->ngram_mode & 0x10000) { set_index_value(STATS_IDX_BYTE_VAL_CORRELATION, v->mfv.byte_val_correlation); }
+    if (s->ngram_mode & 0x20000) { set_index_value(STATS_IDX_BYTE_VAL_FREQ_CORRELATION, v->mfv.byte_val_freq_correlation); }
+    if (s->ngram_mode & 0x40000) { set_index_value(STATS_IDX_UNI_CHI_SQ,      v->mfv.uni_chi_sq); }
     
 
     /* Add the Bias if we are using Bias. It goes last, apparently */
