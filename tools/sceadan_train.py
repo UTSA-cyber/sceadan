@@ -285,6 +285,9 @@ def print_sample():
         print("\n")
     
 def validate_train_file():
+    if not train_file():
+        print("No train file to validate")
+        return
     print("Train file:",train_file())
     linecount = 0
     for line in open(train_file(),"r"):
@@ -538,7 +541,7 @@ if __name__=="__main__":
 
     if args.validate:
         print_data()
-        validate_train_file()
+        if args.exp: validate_train_file()
         exit(0)
 
     import dbm
