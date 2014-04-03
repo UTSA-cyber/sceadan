@@ -674,7 +674,7 @@ static const char *sceadan_map_precompiled[] =
  "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
  "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
  "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FS-FAT", "FS-NTFS", "FS-EXT", "EXE",
- "DLL", "ELF", "BMP", "AES", "RAND",  "PPS",
+ "DLL", "ELF", "BMP", "AES", "RAND",  "PPS", "RAR", "3GP", "7Z", 
  0};
 
 #else

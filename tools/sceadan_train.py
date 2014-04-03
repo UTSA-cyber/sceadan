@@ -9,10 +9,17 @@
 # 2014-02-19 - removed automated handling of ZIP files; it slowed things down and seeking was hard.
 #            - Provided support for reading an extract.out file         
 
+import sys
+if sys.version_info < (3,3):
+    raise RuntimeError("Requires Python 3.3 or above")
+
+
 import sys,re,os,collections,random,multiprocessing
 from subprocess import call,PIPE,Popen
 from ttable import ttable
 from collections import defaultdict
+
+
 
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
@@ -360,6 +367,10 @@ def generate_train_vectors():
 
 def train_model():
     import sys
+
+    if not os.path.exists(args.trainexe):
+        print("*** {} executable does not exist ***".format(args.trainexe))
+        raise RuntimeError("Required executable "+args.trainexe+" is not present")
 
     #
     # First run grid.py
