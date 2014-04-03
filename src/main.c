@@ -222,7 +222,7 @@ void usage()
 int main (int argc, char *const argv[])
 {
     int ch;
-    int opt_ngram_mode = SCEADAN_NGRAM_MODE_DISJOINT;
+    int opt_ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     while((ch = getopt(argc,argv,"b:ej:m:n:Pp:r:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
