@@ -71,3 +71,6 @@ liblinear-1.94-omp/predict
 liblinear-1.94-omp/train
 *.d
 Makefile
+depcomp
+install-sh
+missing
