@@ -80,7 +80,8 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/slg_searchdirs.m4 \
 	$(top_srcdir)/m4/gcc_all_warnings.m4 \
-	$(top_srcdir)/m4/ax_openmp.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/m4/ax_openmp.m4 \
+	$(top_srcdir)/sceadan_configure.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -108,12 +109,12 @@ am__can_run_installinfo = \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /Users/simsong/gits/sceadan/missing aclocal-1.14
+ACLOCAL = ${SHELL} /Users/simsong/gits/bulk_extractor/missing aclocal-1.14
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
-AUTOCONF = ${SHELL} /Users/simsong/gits/sceadan/missing autoconf
-AUTOHEADER = ${SHELL} /Users/simsong/gits/sceadan/missing autoheader
-AUTOMAKE = ${SHELL} /Users/simsong/gits/sceadan/missing automake-1.14
+AUTOCONF = ${SHELL} /Users/simsong/gits/bulk_extractor/missing autoconf
+AUTOHEADER = ${SHELL} /Users/simsong/gits/bulk_extractor/missing autoheader
+AUTOMAKE = ${SHELL} /Users/simsong/gits/bulk_extractor/missing automake-1.14
 AWK = awk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -139,11 +140,11 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LDFLAGS = -L/opt/local/lib -L/usr/local/lib 
 LIBOBJS = 
-LIBS = -lm -llinear 
+LIBS = -lm -llinear -llinear 
 LTLIBOBJS = 
 MAINT = #
-MAKEINFO = ${SHELL} /Users/simsong/gits/sceadan/missing makeinfo
-MKDIR_P = .././install-sh -c -d
+MAKEINFO = ${SHELL} /Users/simsong/gits/bulk_extractor/missing makeinfo
+MKDIR_P = .././../../install-sh -c -d
 OBJEXT = o
 PACKAGE = sceadan
 PACKAGE_BUGREPORT = bugs@afflib.org
@@ -157,10 +158,10 @@ SET_MAKE =
 SHELL = /bin/sh
 STRIP = 
 VERSION = 1.2.1
-abs_builddir = /Users/simsong/gits/sceadan/tools
-abs_srcdir = /Users/simsong/gits/sceadan/tools
-abs_top_builddir = /Users/simsong/gits/sceadan
-abs_top_srcdir = /Users/simsong/gits/sceadan
+abs_builddir = /Users/simsong/gits/bulk_extractor/src/sceadan/tools
+abs_srcdir = /Users/simsong/gits/bulk_extractor/src/sceadan/tools
+abs_top_builddir = /Users/simsong/gits/bulk_extractor/src/sceadan
+abs_top_srcdir = /Users/simsong/gits/bulk_extractor/src/sceadan
 ac_ct_CC = gcc
 ac_ct_CXX = g++
 ac_prefix_program = 
@@ -181,7 +182,7 @@ host_alias =
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /Users/simsong/gits/sceadan/install-sh
+install_sh = ${SHELL} /Users/simsong/gits/bulk_extractor/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale

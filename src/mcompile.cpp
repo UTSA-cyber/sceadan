@@ -43,17 +43,19 @@
 
 int main(int argc,char **argv)
 {
-    const struct model* model = 0;
-
-    if(argc>1){
-        fprintf(stderr,"Loading %s\n",argv[1]);
-        model = load_model(argv[1]);
-        if(!model){
-            perror(argv[1]);
-            exit(1);
-        }
+    if(argc!=3){
+        fprintf(stderr,"usage: mcompile <modelfile> <outputfile>\n");
+        exit(1);
     }
-    sceadan_model_dump(model);
+    fprintf(stderr,"Loading %s\n",argv[1]);
+    const struct model* model = load_model(argv[1]);
+    if(!model){
+        perror(argv[1]);
+        exit(1);
+    }
+    FILE *f = fopen(argv[2],"w");
+    sceadan_model_dump(model,f);
+    fclose(f);
     return(0);
 }
 

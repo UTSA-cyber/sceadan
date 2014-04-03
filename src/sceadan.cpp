@@ -578,45 +578,45 @@ const struct model *sceadan_model_default()
     return default_model;
 }
 
-void sceadan_model_dump(const struct model *model)
+void sceadan_model_dump(const struct model *model,FILE *f)
 {
-    puts("#include \"config.h\"");
-    puts("#ifdef HAVE_LINEAR_H");
-    puts("#include <linear.h>");
-    puts("#endif");
-    puts("#ifdef HAVE_LIBLINEAR_LINEAR_H");
-    puts("#include <liblinear/linear.h>");
-    puts("#endif");
-    puts("#include \"sceadan.h\"");
+    fprintf(f,"#include \"config.h\"");
+    fprintf(f,"#ifdef HAVE_LINEAR_H");
+    fprintf(f,"#include <linear.h>");
+    fprintf(f,"#endif");
+    fprintf(f,"#ifdef HAVE_LIBLINEAR_LINEAR_H");
+    fprintf(f,"#include <liblinear/linear.h>");
+    fprintf(f,"#endif");
+    fprintf(f,"#include \"sceadan.h\"");
 
     if(model->param.nr_weight){
-        printf("static int weight_label[]={");
+        fprintf(f,"static int weight_label[]={");
         for(int i=0;i<model->param.nr_weight;i++){
-            if(i>0) putchar(',');
-            printf("%d",model->param.weight_label[i]);
-            if(i%10==9) printf("\n\t");
+            if(i>0) fprintf(f,",");
+            fprintf(f,"%d",model->param.weight_label[i]);
+            if(i%10==9) fprintf(f,"\n\t");
         }
-        printf("};\n\n");
+        fprintf(f,"};\n\n");
     }
     if(model->param.nr_weight){
-        printf("static double weight[] = {");
+        fprintf(f,"static double weight[] = {");
         for(int i=0;i<model->param.nr_weight;i++){
-            if(i>0) putchar(',');
-            printf("%g",model->param.weight[i]);
-            if(i%10==9) printf("\n\t");
+            if(i>0) fprintf(f,",");
+            fprintf(f,"%g",model->param.weight[i]);
+            if(i%10==9) fprintf(f,"\n\t");
         }
-        printf("};\n\n");
+        fprintf(f,"};\n\n");
     }
 
-    printf("static int label[] = {");
+    fprintf(f,"static int label[] = {");
     for(int i=0;i<model->nr_class;i++){
-        printf("%d",model->label[i]);
-        if(i<model->nr_class-1) putchar(',');
-        if(i%20==19) printf("\n\t");
+        fprintf(f,"%d",model->label[i]);
+        if(i<model->nr_class-1) fprintf(f,",");
+        if(i%20==19) fprintf(f,"\n\t");
     }
-    printf("};\n");
+    fprintf(f,"};\n");
 
-    printf("static double w[] = {");
+    fprintf(f,"static double w[] = {");
     int n;
     if(model->bias>=0){
         n = model->nr_feature+1;
@@ -633,31 +633,38 @@ void sceadan_model_dump(const struct model *model)
 
     for(int i=0;i<w_size;i++){
         for(int j=0;j<nr_w;j++){
-            printf("%.16lg",model->w[i*nr_w+j]);
-            if(i!=w_size-1 || j!=nr_w-1) putchar(',');
-            if(j%10==9) printf("\n\t");
+            fprintf(f,"%.16lg",model->w[i*nr_w+j]);
+            if(i!=w_size-1 || j!=nr_w-1) fprintf(f,",");
+            if(j%10==9) fprintf(f,"\n\t");
         }
-        printf("\n\t");
+        fprintf(f,"\n\t");
     }
-    printf("};\n");
+    fprintf(f,"};\n");
         
-    printf("static struct model m = {\n");
-    printf("\t.param = {\n");
-    printf("\t\t.solver_type=%d,\n",model->param.solver_type);
-    printf("\t\t.eps = %g,\n",model->param.eps);
-    printf("\t\t.C = %g,\n",model->param.C);
-    printf("\t\t.nr_weight = %d,\n",model->param.nr_weight);
-    printf("\t\t.weight_label = %s,\n",model->param.nr_weight ? "weight_label" : "0");
-    printf("\t\t.weight = %s,\n",model->param.nr_weight ? "weight" : "0");
-    printf("\t\t.p = %g},\n",model->param.p);
+    fprintf(f,"static struct model m = {\n");
+    fprintf(f,"\t .param = {\n");
+    fprintf(f,"\t\t .solver_type=%d,\n",model->param.solver_type);
+    fprintf(f,"\t\t .eps = %g,\n",model->param.eps);
+    fprintf(f,"\t\t .C = %g,\n",model->param.C);
+    fprintf(f,"\t\t .nr_weight = %d,\n",model->param.nr_weight);
+    fprintf(f,"\t\t .weight_label = %s,\n",model->param.nr_weight ? "weight_label" : "0");
+    fprintf(f,"\t\t .weight = %s\n",model->param.nr_weight ? "weight" : "0");
+    fprintf(f,"#ifdef LIBLINEAR_19\n");
+#ifdef LIBLINEAR_19
+    fprintf(f,"\t\t ,t.p = %g",model->param.p);
+#else
+    fprintf(f,"\t\t ,t.p = %g",0.0);
+#endif
+    fprintf(f,"#endif\n");
+    fprintf(f,"},\n");
 
-    printf("\t.nr_class=%d,\n",model->nr_class);
-    printf("\t.nr_feature=%d,\n",model->nr_feature);
-    printf("\t.w=w,\n");
-    printf("\t.label=label,\n");
-    printf("\t.bias=%g};\n",model->bias);
+    fprintf(f,"\t .nr_class=%d,\n",model->nr_class);
+    fprintf(f,"\t .nr_feature=%d,\n",model->nr_feature);
+    fprintf(f,"\t .w=w,\n");
+    fprintf(f,"\t .label=label,\n");
+    fprintf(f,"\t .bias=%g};\n",model->bias);
 
-    printf("const struct model *sceadan_model_precompiled(){return &m;}\n");
+    fprintf(f,"const struct model *sceadan_model_precompiled(){return &m;}\n");
 }
 
 
