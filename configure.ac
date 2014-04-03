@@ -21,6 +21,7 @@ AC_PROG_CC_C99                  dnl please use C99
 m4_include([m4/slg_searchdirs.m4])
 m4_include([m4/gcc_all_warnings.m4])
 m4_include([m4/ax_openmp.m4])
+m4_include([sceadan_configure.m4])
 
 ################################################################
 # Specify our other headers
@@ -41,11 +42,9 @@ AX_OPENMP([AC_MSG_NOTICE([OpenMP Found])])
 CFLAGS="$CFLAGS $OPENMP_CFLAGS"
 CXXFLAGS="$CXXFLAGS $OPENMP_CFLAGS"
 
-
 # -llinear
 AC_CHECK_HEADERS([linear.h liblinear/linear.h])
 AC_CHECK_LIB([linear],[load_model],,AC_MSG_ERROR([missing -llinear]))
-# AC_CHECK_FUNCS([load_model check_probability_model predict_probability predict],,AC_MSG_ERROR([missing linear functions]))
 
 # -lm
 AC_CHECK_HEADERS([math.h],,AC_MSG_ERROR([missing math.h]))
