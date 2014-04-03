@@ -34,7 +34,7 @@ typedef struct sceadan_t sceadan;
  * won't generate an error unless it's used (and it won't be).
  */
 
-void sceadan_model_dump(const struct model *); // to stdout
+void sceadan_model_dump(const struct model *,FILE *outfile); // to stdout
 sceadan *sceadan_open(const char *model_file,const char *map_file); // use 0 for default model precompiled
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file

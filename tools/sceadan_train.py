@@ -210,7 +210,13 @@ def blocks_in_files(fns):
 
 def split_data():
     """Takes data files and assigns them randomly to training
-    and test data sets"""
+    and test data sets...
+
+    - Randomly partition the files into 1/2 training, 1/2 testing
+    - Compute the number of blocks present for each file type's train and test parts. 
+    - Take the minimum of these numbers. 
+    - Randomly chose that number of blocks from each file type of the train set.
+    """
     must_split = False
     for key in ['test_files','train_files','blocks']:
         print(key,key in db.keys())
@@ -237,7 +243,7 @@ def split_data():
     db['blocks'] = blocks
     db['train_blocksize'] = args.train_blocksize
 
-    # For each file type, make a list of all the 
+    # For each file type, make a list of all the blocks
     for ftype in filetypes():
         blks = []
         for fn in the_test_files[ftype]:
@@ -288,6 +294,9 @@ def print_sample():
         print("\n")
     
 def validate_train_file():
+    if not train_file():
+        print("No train file to validate")
+        return
     print("Train file:",train_file())
     linecount = 0
     for line in open(train_file(),"r"):
@@ -560,7 +569,7 @@ if __name__=="__main__":
 
     if args.validate:
         print_data()
-        validate_train_file()
+        if args.exp: validate_train_file()
         exit(0)
 
     if args.stest:
