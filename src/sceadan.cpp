@@ -421,7 +421,7 @@ static void vectors_update (const sceadan *s,const uint8_t buf[], const size_t s
         else v->mfv.hi_ascii_freq.tot++;
 
         // total count of set bits (for hamming weight)
-        v->mfv.hamming_weight.tot += (nbit_unigram - __builtin_popcount (unigram));
+        v->mfv.hamming_weight.tot += __builtin_popcount (unigram);
         v->mfv.mean_byte_value.tot += unigram;              /* sum of byte values */
         v->mfv.stddev_byte_val.tot += unigram*unigram; /* sum of squares */
 
