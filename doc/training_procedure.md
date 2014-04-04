@@ -49,13 +49,14 @@ building a custom classifier:
 
 6. cd tools
 
-7. Validate the training data with the sceadan_train.py program:
+7. Validate the training data with the sceadan_train.py program. This
+   program is in Python3 and must be run with a python3 interpreter, as
+   shown below ($ is the Linux prompt):
 
    $ python3 tools/sceadan_train.py --validate --data=DATA/ 
 
    --validate   --- Validate what's in DATA
    --data=      --- specifies data repository
-
 
 8. Try to train with 50% of the data for training and 50% for testing:
 

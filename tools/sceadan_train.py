@@ -9,10 +9,17 @@
 # 2014-02-19 - removed automated handling of ZIP files; it slowed things down and seeking was hard.
 #            - Provided support for reading an extract.out file         
 
+import sys
+if sys.version_info < (3,3):
+    raise RuntimeError("Requires Python 3.3 or above")
+
+
 import sys,re,os,collections,random,multiprocessing
 from subprocess import call,PIPE,Popen
 from ttable import ttable
 from collections import defaultdict
+
+
 
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
@@ -167,6 +174,9 @@ def train_file():
 def model_file():
     return os.path.join(args.exp,"model")
 
+def hms_time(label,t):
+    t = int(t * 100)/100
+    return "{}: {} ({} seconds)".format(label,str(datetime.timedelta(seconds=t)),t)
 
 
 ################################################################
@@ -345,6 +355,7 @@ def generate_train_vectors():
     if os.path.exists(tmp_file): os.unlink(tmp_file)
 
     print("Generating train vectors with j={}".format(args.j))
+    t1 = time.time()
     f = open(tmp_file,"wb")
     if args.j>1:
         import multiprocessing
@@ -357,9 +368,14 @@ def generate_train_vectors():
         os.unlink(fn)
     f.close()
     os.rename(tmp_file,train_file())
+    print(hms_time("Time to generate training vectors",time.time()-t0))
 
 def train_model():
     import sys
+
+    if not os.path.exists(args.trainexe):
+        print("*** {} executable does not exist ***".format(args.trainexe))
+        raise RuntimeError("Required executable "+args.trainexe+" is not present")
 
     #
     # First run grid.py
@@ -380,7 +396,7 @@ def train_model():
         t0 = time.time()
         call(cmd)
         t = time.time()-t0
-        print("Grid Search time: {} seconds".format(t))
+        print(hms_time("Grid Search time",t))
         db['grid_cmd'] = cmd
         db['grid_time'] = t
     #
@@ -404,7 +420,7 @@ def train_model():
     t0 = time.time()
     call(cmd)
     db['liblinear_train_command'] = " ".join(cmd)
-    print("Time to train: {}".format(time.time()-t0))
+    print(hms_time("Time to train",time.time()-t0))
 
 
 ################################################################
@@ -428,8 +444,7 @@ def get_sceadan_score_for_filetype(ftype):
         cmd += ['-n',args.ngram_mode]
     cmd += test_files(ftype)
     sceadan_classification_cmd = " ".join(cmd)
-    db['sceadan_classification_cmd'] = cmd
-    print("cmd:",db['sceadan_classification_cmd'][0:120])
+    print("cmd:",cmd[0:120])
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
     for line in res.split("\n"):
         if line=="": continue
@@ -446,60 +461,74 @@ def generate_confusion():
         print("Confusion matrix already exists")
         return
 
-    print("Generating confusion matrix")
-    t = ttable()
+    if not os.path.exists(model_file()):
+        print("Cannot generate confusion matrix: {} does not exist".format(model_file()))
+        f = sys.stdout
 
-    db['test_blocksize'] = args.test_blocksize
-
-    #t.append_head(['File Type','Classifies as'])
-
-    # Okay. Get these in a row with a threadpool
-    if args.j>1:
-        import multiprocessing
-        pool = multiprocessing.Pool(args.j)
     else:
-        import multiprocessing.dummy
-        pool = multiprocessing.dummy.Pool(1)
-    sceadan_score_rows = {}
-    classified_types = set()
-    for (ftype,tally) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
-        sceadan_score_rows[ftype] = tally
-        classified_types = classified_types.union(set(tally.keys()))
+        print("Generating confusion matrix")
+        t = ttable()
 
-    classtypes = [t.upper() for t in sorted(classified_types)]
+        db['test_blocksize'] = args.test_blocksize
 
-    # Get a list of all the classified types
-    # And calculate the precision and recall
+        #t.append_head(['File Type','Classifies as'])
 
-    t.append_head([''] + classtypes)
-    total_events = 0
-    total_correct = 0
-    percent_correct_sum= 0
-    rowcounter = 0
-    for ftype in filetypes():
-        FTYPE = ftype.upper()
-        tally = sceadan_score_rows[ftype]
-        count = sum(tally.values())
-        total_events  += count
-        total_correct += tally.get(ftype.upper(),0)
-        percent_correct = tally.get(ftype.upper(),0)*100.0 / count
-        percent_correct_sum += percent_correct
-        data = [FTYPE] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
-        t.append_data(data)
-        rowcounter += 1
-        if rowcounter % 5 ==0:
-            t.append_data([''])
-    txt_report = t.typeset(mode='text') +\
-        "Train blocksize: {}\n".format(db['train_blocksize']) +\
-        "Test blocksize: {}\n".format(db['test_blocksize']) +\
-        "Overall accuracy: {:.1f}%\n".format((total_correct*100.0)/total_events) + \
-        "Average accuracy per class: {:.1f}%\n".format(percent_correct_sum/len(filetypes())) +\
-        "Vector generation command: {}\n".format(db['vector_generation_cmd']) +\
-        "Liblinear training command: {}\n".format(db['liblinear_train_command']) +\
-        "Sceadan classification command: {}\n".format(db['sceadan_classification_cmd'][0:120]) 
+        # Okay. Get these in a row with a threadpool
+        if args.j>1:
+            import multiprocessing
+            pool = multiprocessing.Pool(args.j)
+        else:
+            import multiprocessing.dummy
+            pool = multiprocessing.dummy.Pool(1)
+        sceadan_score_rows = {}
+        classified_types = set()
+        for (ftype,tally) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
+            sceadan_score_rows[ftype] = tally
+            classified_types = classified_types.union(set(tally.keys()))
 
-    openexp("confusion.txt","w").write(txt_report)
-    print(txt_report)
+        classtypes = [t.upper() for t in sorted(classified_types)]
+
+        # Get a list of all the classified types
+        # And calculate the precision and recall
+
+        t.append_head([''] + classtypes)
+        total_events = 0
+        total_correct = 0
+        percent_correct_sum= 0
+        rowcounter = 0
+        for ftype in filetypes():
+            FTYPE = ftype.upper()
+            tally = sceadan_score_rows[ftype]
+            count = sum(tally.values())
+            total_events  += count
+            total_correct += tally.get(ftype.upper(),0)
+            percent_correct = tally.get(ftype.upper(),0)*100.0 / count
+            percent_correct_sum += percent_correct
+            data = [FTYPE] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
+            t.append_data(data)
+            rowcounter += 1
+            if rowcounter % 5 ==0:
+                t.append_data([''])
+            f = openexp("confusion.txt","w")
+            f.write(t.typeset(mode='text'))
+        db['overall_accuracy'] = (total_correct*100.0)/total_events
+        db['average_accuracy_per_class'] = percent_correct_sum/len(filetypes())
+        
+    def info(n):
+        try:
+            v = str(db[n])[0:120]
+            val = "{}: {}".format(n.replace("_"," "),v)
+            f.write(val+"\n")
+            print(val)
+        except KeyError as e:
+            f.write("key {} not found\n".format(n))
+    print("Keys in database:",list(db.keys()))
+    info('train_blocksize')
+    info('test_blocksize')
+    info('vector_generation_cmd')
+    info('liblinear_train_command')
+    info('overall_accuracy')
+    info('average_accuracy_per_class')
         
             
 ################################################################
@@ -520,6 +549,7 @@ if __name__=="__main__":
     parser.add_argument("--data",help="Top directory of training/testing data",default='../DATA')
     parser.add_argument("--exp",help="Directory to hold experimental information")
     parser.add_argument("--copyexp",help="Copy training data from this directory")
+    parser.add_argument("--copymodel",help="Copy model from this directory")
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
@@ -537,6 +567,7 @@ if __name__=="__main__":
     parser.add_argument('--ngram_mode',help='ngram mode',type=str)
     parser.add_argument('--validate',help='Just validate the test data',action='store_true')
     parser.add_argument("--dbdump",help="Dump the named database")
+    parser.add_argument("--stest",help="test the shelf",action='store_true')
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
@@ -545,15 +576,27 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
+        
+
     if args.validate:
         print_data()
         if args.exp: validate_train_file()
         exit(0)
 
-    import dbm
+    if args.stest:
+        db = shelve.open("stest",writeback=True)
+        db['foo'] = "bar"
+        db['baz'] = [1,2,3]
+        db.close()
+        db = shelve.open("stest",writeback=True)
+        for (k,v) in db.items():
+            print(k,"=",v)
+        exit(0)
+
+
     if args.dbdump:
-        db = shelve.DbfilenameShelf(args.dbdump)
-        for (key,val) in db:
+        db = shelve.open(args.dbdump,writeback=True)
+        for (key,val) in db.items():
             print("{}={}",(key,val))
         exit(0)
 
@@ -565,8 +608,13 @@ if __name__=="__main__":
 
     if args.copyexp:
         print("Copying training data from {} to {}".format(args.copyexp,args.exp))
-        for fn in ['experiment.db']:
+        for fn in ['experiment']:
             shutil.copyfile(os.path.join(args.copyexp,fn),os.path.join(args.exp,fn))
+
+    if args.copymodel:
+        print("Copying model from {} to {}".format(args.copyexp,args.exp))
+        for fn in ['experiment','model']:
+            shutil.copyfile(os.path.join(args.copymodel,fn),os.path.join(args.exp,fn))
 
     print("Starting run at {}".format(time.asctime()))
 
@@ -578,15 +626,15 @@ if __name__=="__main__":
 
     t0 = time.time()
 
-    db = shelve.DbfilenameShelf(expname("experiment"))
-
+    db = shelve.open(expname("experiment"),writeback=True)
     split_data()
     print_data()
+
     if not args.notrain:
         generate_train_vectors()
         train_model()
     generate_confusion()
 
     sec = time.time() - t0
-    print("Elapsed time: {} ({:.0f} seconds)".format(
-            str(datetime.timedelta(seconds=sec)),sec))
+    print(hms_time("Elapsed time",sec))
+    db.close()

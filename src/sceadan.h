@@ -50,9 +50,7 @@ void sceadan_dump_json_on_classify(sceadan *,int file_type,FILE *out); // dump J
 void sceadan_dump_nodes_on_classify(sceadan *,int file_type,FILE *out); // dump  vectors instead of classifying
 void sceadan_set_ngram_mode(sceadan *s,int mode);
 
-#define SCEADAN_NGRAM_MODE_DISJOINT 0
-#define SCEADAN_NGRAM_MODE_OVERLAPPING 1
-#define SCEADAN_NGRAM_MODE_PARITY 2
+#define SCEADAN_NGRAM_MODE_DEFAULT 2
 
 __END_DECLS
 

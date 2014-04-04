@@ -76,9 +76,9 @@ uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 
 /* Liblinear index mapping: */
 static const int START_UNIGRAMS=1;  /* 1..256 - unigram counts */
-static const int START_BIGRAMS_ALL=START_UNIGRAMS+NUNIGRAMS; /* 257+FS - all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
-static const int START_BIGRAMS_EVEN = START_BIGRAMS_ALL  + NBIGRAMS; /*  257+65536+FS - even bigram counts for bigram FS */
-static const int START_BIGRAMS_ODD  = START_BIGRAMS_EVEN + NBIGRAMS; /* 257+65536*2+S - odd bigram counts for bigram FS */
+static const int START_BIGRAMS_EVEN = START_UNIGRAMS+NUNIGRAMS;      /* even bigram counts for bigram FS */
+static const int START_BIGRAMS_ALL  = START_BIGRAMS_EVEN + NBIGRAMS; /* all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
+static const int START_BIGRAMS_ODD  = START_BIGRAMS_ALL  + NBIGRAMS; /* odd bigram counts for bigram FS */
 static const int START_STATS        = START_BIGRAMS_ODD  + NBIGRAMS;
 static const int STATS_IDX_BIGRAM_ENTROPY              = START_STATS + 0;
 static const int STATS_IDX_ITEM_ENTROPY                = START_STATS + 1;
@@ -266,7 +266,7 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
 
 /** Create the sparse liblinear fature_node structure from the vectors used by sceadan. **/
 
-#define assert_and_set(i) {assert(set[i]==0);set[i]=1;}
+#define assert_and_set(i)    {assert(set[i]==0);set[i]=1;} // make sure it hasn't been set before
 #define set_index_value(k,v) {assert(idx<MAX_NR_ATTR);x[idx].index = k; x[idx].value = v; idx++;}
 static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *v, struct feature_node *x )
 {
@@ -674,7 +674,7 @@ static const char *sceadan_map_precompiled[] =
  "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
  "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
  "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FS-FAT", "FS-NTFS", "FS-EXT", "EXE",
- "DLL", "ELF", "BMP", "AES", "RAND",  "PPS",
+ "DLL", "ELF", "BMP", "AES", "RAND",  "PPS", "RAR", "3GP", "7Z", 
  0};
 
 #else
@@ -698,6 +698,7 @@ sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for 
     } else {
         s->model = sceadan_model_precompiled();
     }
+    s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     s->v = (sceadan_vectors_t *)calloc(sizeof(sceadan_vectors_t),1);
     if(map_file){
         assert(0);                      /* need to write this code */
