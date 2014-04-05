@@ -19,145 +19,11 @@ from subprocess import call,PIPE,Popen
 from ttable import ttable
 from collections import defaultdict
 
-
-
 block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
 OpenMP_j    = 4                            # since we compiled with OpenMP, -j4 is enough
 
 
-ftype_equivs = {"JPEG":"JPG",
-                "DLL":"EXE",
-                "TXT":"TEXT",
-                "TIFF":"TIF",
-                "MSF":"TBIRD",
-                "URLENCODED":"URL"}
-
-#def get_ftype(fn):
-#    ftype = os.path.basename(os.path.dirname(fn))
-#    if ftype: return ftype.upper()
-#    ftype = os.path.splitext(fn.upper())[1][1:]
-#    return ftype_equivs.get(ftype,ftype)
-#    
-#def train_file(fname):
-#    """Process a file and send a list of vectors to output file"""
-#
-#    if args.minfilesize and os.path.getsize(fname) < args.minfilesize:
-#        print("Ignoring small file",fname)
-#        return
-#    
-#    ftype = get_ftype(fname)
-#
-#    # See if we need more of this type
-#    if block_count[ftype] > args.maxsamples: return
-#
-#    # Collect the data points
-#
-#    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-p',str(args.percentage),'-P',fname]
-#    p1 = Popen(cmd,stdout=PIPE,stderr=PIPE)
-#    res          = p1.communicate()
-#    if not res[0] and not res[1]:
-#        return                  # no data, no problem (might be a sampling issue)
-#    vectors      = res[0].decode('utf-8').split('\n')
-#    offsets      = res[1].decode('utf-8').split('\n')
-#    if len(vectors)!=len(offsets):
-#        print(offsets)
-#        return
-#
-#    assert(len(vectors)==len(offsets))
-#    
-#    # Finally, add to the file
-#    with open(args.outdir+"/"+ftype,"a") as f:
-#        for (v,o) in zip(vectors,offsets):
-#            if len(v)<5: continue # not possibly valid
-#            try:
-#                f.write("{}  # {}\n".format(v,o))
-#                block_count[ftype] += 1
-#            except OSError as e:
-#                print("{} f.write error: {}".format(fname,str(e)))
-#
-#        file_count[ftype] += 1
-#        print("{} {} {}".format(fname,ftype,block_count[ftype]))
-#    
-#
-#confusion={}
-#def confusion_file(fname):
-#    """Process a file and report how each block is classified"""
-#    ftype = get_ftype(fname)
-#    cmd = [args.exe,'-b',str(args.train_blocksize),fname]
-#    p1  = Popen(cmd,stdout=PIPE,stderr=PIPE)
-#    res = p1.communicate()
-#    r   = re.compile("(\d+)\s+([^ ]+)")
-#    for line in res[0].decode('utf-8').split('\n'):
-#        m = r.search(line)
-#        if not m: continue
-#        btype = m.group(2)
-#        if ftype not in confusion: confusion[ftype] = {}
-#        if btype not in confusion[ftype]: confusion[ftype][btype] = 0
-#        confusion[ftype][btype] += 1
-#    print(confusion)
-#
-#
-#def process_fname_dir(files,func):
-#    print("pf = ",files)
-#        
-#def train_files():
-#    for fname in args.files:
-#        if os.path.isfile(fname): train_file(fname)
-#        if os.path.isdir(fname):
-#            for (dirpath,dirnames,filenames) in os.walk(fname):
-#                for filename in filenames:
-#                    if filename[0:1]=='.': continue # ignore dot files
-#                    train_file(os.path.join(dirpath,filename))
-#    print("Counts of each block type:")
-#    for (ftype,count) in sorted(block_count.items()):
-#        print("{:10} {:10}".format(ftype,count))
-#    
-#def confusion_files():
-#    for fname in args.files:
-#        if os.path.isfile(fname): confusion_file(fname)
-#        if os.path.isdir(fname):
-#            for (dirpath,dirnames,filenames) in os.walk(fname):
-#                for filename in filenames:
-#                    if filename[0:1]=='.': continue # ignore dot files
-#                    confusion_file(os.path.join(dirpath,filename))
-#
-#
-#def train_buf(outfile,fn,offset,bufsize):
-#    ftype = get_ftype(fn)
-#    with open(fn,"rb") as fin:
-#        cmd = [args.exe,'-b',str(bufsize),'-t',ftype,'-']
-#        p1 = Popen(cmd,stdin=PIPE,stdout=PIPE)
-#        fin.seek(offset)
-#        p1.stdin.write(fin.read(bufsize))
-#        fin.close()
-#        res = p1.communicate()
-#        vectors = res[0].decode('utf-8')
-#        outfile.write(vectors)
-#        block_count[ftype] += 1
-#
-#def run_grid():
-#    from distutils.spawn import find_executable
-#    train = find_executable('train')
-#    
-#def train_extractlog(fn):
-#    dname = os.path.dirname(fn)
-#    alerted = set()
-#    count = 0
-#    for line in open(fn):
-#        (path,offset) = line.strip().split('\t')
-#        fn = os.path.join(dname,path)
-#        if not os.path.exists(fn):
-#            if fn not in alerted:
-#                alerted.add(fn)
-#                print("Does not exist: {}".format(fn),file=sys.stderr)
-#                continue
-#        BLOCKSIZE = 512
-#        train_buf(outfile,fn,int(offset)*BLOCKSIZE,BLOCKSIZE)
-#        count += 1
-#        if count%1000==0:
-#            print("Processed {:,} blocks".format(count))
-        
 ################################################################
 ### Utilitiy functions
 ################################################################
@@ -178,9 +44,16 @@ def hms_time(label,t):
     t = int(t * 100)/100
     return "{}: {} ({} seconds)".format(label,str(datetime.timedelta(seconds=t)),t)
 
+def sceadan_type_for_name(name):
+    return int(Popen([args.exe,'-T',name],stdout=PIPE).communicate()[0])
+
+def sceadan_name_for_type(t):
+    return Popen([args.exe,'-T',str(t)],stdout=PIPE).communicate()[0]
+
 
 ################################################################
 ## Sample Selection
+## This creates the blocks used for training and testing.
 ################################################################
 
 def datadir():
@@ -206,7 +79,6 @@ def train_files(ftype):
 def test_files(ftype):
     """Returns all of the test files for a file type"""
     return db['test_files'][ftype]
-
 
 def blocks_in_file(fn):
     """ Return the number of blocks in a given file """
@@ -240,6 +112,7 @@ def split_data():
         pivot = int(len(files) * args.split)
         the_test_files[ftype] = files[0:pivot]
         the_train_files[ftype] = files[pivot:]
+
     # Save in the shelve
     db['test_files'] = the_test_files
     db['train_files'] = the_train_files
@@ -269,6 +142,9 @@ def print_data():
     t.set_col_alignment(5,t.RIGHT)
     blocks_per_type = {}
     for ftype in filetypes():
+        if sceadan_type_for_name(ftype) == -1:
+            raise RuntimeError("file type {} is invalid".format(ftype))
+
         blocks = [os.path.getsize(fn)//args.train_blocksize for fn in ftype_files(ftype)]
         blocks = list(filter(lambda v:v>0,blocks))
         t.append_data((ftype,len(blocks),min(blocks),max(blocks),sum(blocks)/len(blocks),sum(blocks)))
@@ -319,8 +195,12 @@ def validate_train_file():
 ################################################################
 
 def generate_train_vectors_for_type(ftype):
-    """Run sceadan for the specific blocks for each file. Output goes to a 
-    temporary file whose name is returned to the caller."""
+    """Run sceadan for the specific blocks for a specific file
+    type. Output goes to a temporary file whose name is returned to
+    the caller. The files are generated in parallel with the
+    multiprocessing module (this is a slow process), the combined and
+    unlinked by the main thread (that is a fast process).
+    """
 
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
@@ -330,11 +210,12 @@ def generate_train_vectors_for_type(ftype):
     db['train_blocksize'] = args.train_blocksize
     db['vector_generation_cmd'] = " ".join(cmd)
     p = Popen(cmd,stdout=out,stdin=PIPE)
-
     ret = ""
     blocks_by_file = {}
     for (fn,block) in db[ftype]:
-        if fn not in blocks_by_file:
+        if args.train_noblock0 and block==0:
+            continue            # do not add block 0?
+        if fn not in blocks_by_file: 
             blocks_by_file[fn] = set()
         blocks_by_file[fn].add(block)
     for (fn,blocks) in blocks_by_file.items():
@@ -348,6 +229,7 @@ def generate_train_vectors_for_type(ftype):
     return outfn
 
 def generate_train_vectors():
+    """Generate the training vectors for liblinear from the train database."""
     if os.path.exists(train_file()):
         print("Will not re-generate train vectors: {} already exists".format(train_file()))
         return
@@ -372,10 +254,6 @@ def generate_train_vectors():
 
 def train_model():
     import sys
-
-    if not os.path.exists(args.trainexe):
-        print("*** {} executable does not exist ***".format(args.trainexe))
-        raise RuntimeError("Required executable "+args.trainexe+" is not present")
 
     #
     # First run grid.py
@@ -432,19 +310,30 @@ def get_sceadan_score_for_file(fn,tally):
 def get_sceadan_score_for_filetype(ftype):
     from collections import defaultdict
 
+    print("Generating sceadan score for file type {}".format(ftype))
     tally = defaultdict(int)
     import re
     pat = re.compile("(\d+)\s+(.*) #")
     cmd = [args.exe]
+    
+    # Compute the file count and the block count
+    file_count = len(test_files(ftype))
+    block_count = blocks_in_files(test_files())
+    if args.test_noblock0:
+        block_count -= file_count # ignoring the first block of each file
+
     if args.test_blocksize:
         cmd += ['-b',str(args.test_blocksize)]
     if not args.nomodel:
         cmd += ['-m',model_file()]
     if args.ngram_mode:
         cmd += ['-n',args.ngram_mode]
+    if args.test_noblock0:
+        cmd += ['-x']
     cmd += test_files(ftype)
     sceadan_classification_cmd = " ".join(cmd)
-    print("cmd:",cmd[0:120])
+    if args.verbose:
+        print("cmd:",cmd[0:120])
     res = Popen(cmd,stdout=PIPE).communicate()[0].decode('utf-8')
     for line in res.split("\n"):
         if line=="": continue
@@ -453,8 +342,9 @@ def get_sceadan_score_for_filetype(ftype):
             tally[m.group(2)] += 1
         else:
             print("Weird line:",line)
-    print(ftype,"classifications: ",tally)
-    return (ftype,tally)
+    print (ftype,"classifications: ",tally)
+    return (ftype,tally,file_count,block_count)
+
 
 def generate_confusion():
     if os.path.exists(expname("confusion.txt")):
@@ -462,59 +352,67 @@ def generate_confusion():
         return
 
     if not os.path.exists(model_file()):
-        print("Cannot generate confusion matrix: {} does not exist".format(model_file()))
-        f = sys.stdout
+        raise RuntimeError("Cannot generate confusion matrix. Model file {} does not exist".format(model_file()))
+        
+    print("Generating confusion matrix")
+    t = ttable()
 
+    db['test_blocksize'] = args.test_blocksize
+
+    #t.append_head(['File Type','Classifies as'])
+
+    # Okay. Get these in a row with a threadpool
+    if args.j>1:
+        import multiprocessing
+        pool = multiprocessing.Pool(args.j)
     else:
-        print("Generating confusion matrix")
-        t = ttable()
+        import multiprocessing.dummy
+        pool = multiprocessing.dummy.Pool(1)
+    sceadan_score_rows = {}
+    files_per_type     = {}
+    blocks_per_type    = {}
+    classified_types = set()
+    for (ftype,tally,file_count,block_count) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
+        sceadan_score_rows[ftype] = tally
+        classified_types = classified_types.union(set(tally.keys()))
+        files_per_type[ftype] = file_count
+        blocks_per_type[ftype] = block_count
 
-        db['test_blocksize'] = args.test_blocksize
+    classtypes = [t.upper() for t in sorted(classified_types)]
 
-        #t.append_head(['File Type','Classifies as'])
+    # Get a list of all the classified types
+    # And calculate the precision and recall
 
-        # Okay. Get these in a row with a threadpool
-        if args.j>1:
-            import multiprocessing
-            pool = multiprocessing.Pool(args.j)
-        else:
-            import multiprocessing.dummy
-            pool = multiprocessing.dummy.Pool(1)
-        sceadan_score_rows = {}
-        classified_types = set()
-        for (ftype,tally) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
-            sceadan_score_rows[ftype] = tally
-            classified_types = classified_types.union(set(tally.keys()))
+    t.append_head(['    ','file ', 'block'])
+    t.append_head(['type','count', 'count'] + classtypes)
+    total_events = 0
+    total_correct = 0
+    percent_correct_sum= 0
+    rowcounter = 0
+    for ftype in filetypes():
+        FTYPE         = ftype.upper()
+        tally         = sceadan_score_rows[ftype]
+        count         = sum(tally.values())
+        total_events  += count
+        total_correct += tally.get(ftype.upper(),0)
+        percent_correct = tally.get(ftype.upper(),0)*100.0 / count
+        percent_correct_sum += percent_correct
 
-        classtypes = [t.upper() for t in sorted(classified_types)]
-
-        # Get a list of all the classified types
-        # And calculate the precision and recall
-
-        t.append_head([''] + classtypes)
-        total_events = 0
-        total_correct = 0
-        percent_correct_sum= 0
-        rowcounter = 0
-        for ftype in filetypes():
-            FTYPE = ftype.upper()
-            tally = sceadan_score_rows[ftype]
-            count = sum(tally.values())
-            total_events  += count
-            total_correct += tally.get(ftype.upper(),0)
-            percent_correct = tally.get(ftype.upper(),0)*100.0 / count
-            percent_correct_sum += percent_correct
-            data = [FTYPE] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
-            t.append_data(data)
-            rowcounter += 1
-            if rowcounter % 5 ==0:
-                t.append_data([''])
-            f = openexp("confusion.txt","w")
-            f.write(t.typeset(mode='text'))
-        db['overall_accuracy'] = (total_correct*100.0)/total_events
-        db['average_accuracy_per_class'] = percent_correct_sum/len(filetypes())
+        # Generate each row of the output
+        
+        data = [FTYPE, files_per_type[FTYPE], blocks_per_type[FTYPE]] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
+        t.append_data(data)
+        rowcounter += 1
+        if rowcounter % 5 ==0:
+            t.append_data([''])
+        f = openexp("confusion.txt","w")
+        f.write(t.typeset(mode='text'))
+        print(t.typeset(mode='text'))
+    db['overall_accuracy'] = (total_correct*100.0)/total_events
+    db['average_accuracy_per_class'] = percent_correct_sum/len(filetypes())
         
     def info(n):
+        """Print a value from the database and print in confusion.txt"""
         try:
             v = str(db[n])[0:120]
             val = "{}: {}".format(n.replace("_"," "),v)
@@ -536,6 +434,16 @@ def generate_confusion():
 ################################################################
 
 
+def stest():
+    db = shelve.open("stest",writeback=True)
+    db['foo'] = "bar"
+    db['baz'] = [1,2,3]
+    db.close()
+    db = shelve.open("stest",writeback=True)
+    for (k,v) in db.items():
+        print(k,"=",v)
+    exit(0)
+
 help_text="""
 Train sceadan from input files. File type
 is determined by the containing directory name. If there is no containing directory
@@ -544,11 +452,16 @@ file type is determined by extension."""
 if __name__=="__main__":
     import argparse,zipfile,os,time,shelve,datetime,shutil
     t0 = time.time()
+    print("="*60)
+    print("="*60)
+    print("="*60)
+    print(" ".join(sys.argv))
+    print(" ")
     parser = argparse.ArgumentParser(description=help_text,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--data",help="Top directory of training/testing data",default='../DATA')
     parser.add_argument("--exp",help="Directory to hold experimental information")
-    parser.add_argument("--copyexp",help="Copy training data from this directory")
+    parser.add_argument("--copyexp",help="Copy experimental data from this directory")
     parser.add_argument("--copymodel",help="Copy model from this directory")
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
@@ -557,7 +470,9 @@ if __name__=="__main__":
     parser.add_argument("--verbose",help="Print full detail",action='store_true')
     parser.add_argument('--train_blocksize',type=int,default=4096,help='blocksize for training.')
     parser.add_argument('--test_blocksize',type=int,help='blocksize for testing.')
-    parser.add_argument('--exe',help='Specify name of sceadan_app',default='../src/sceadan_app')
+    parser.add_argument('--train_noblock0',help='Do not train on block 0',action='store_true')
+    parser.add_argument('--test_noblock0',help='Do not test on block 0',action='store_true')
+    parser.add_argument('--exe',help='Specify name of sceadan_app',default=os.path.join(os.path.dirname(__file__),'../src/sceadan_app'))
     parser.add_argument('--note',help='Add a note to the expeirment archive')
     parser.add_argument('--notrain',action='store_true',help='Do not train a new model')
     parser.add_argument('--c',help='Specify C parameter for training')
@@ -576,23 +491,18 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
-        
+    # Check to make sure files exists
+    if not os.path.exists(args.exe):
+        raise RuntimeError("exe {} not found".format(args.exe))
+    if not os.path.exists(args.trainexe):
+        raise RuntimeError("trainexe {} not found".format(args.trainexe))
+
+    if args.stest: stest()      # shelf test
 
     if args.validate:
         print_data()
         if args.exp: validate_train_file()
         exit(0)
-
-    if args.stest:
-        db = shelve.open("stest",writeback=True)
-        db['foo'] = "bar"
-        db['baz'] = [1,2,3]
-        db.close()
-        db = shelve.open("stest",writeback=True)
-        for (k,v) in db.items():
-            print(k,"=",v)
-        exit(0)
-
 
     if args.dbdump:
         db = shelve.open(args.dbdump,writeback=True)
