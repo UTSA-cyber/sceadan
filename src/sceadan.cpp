@@ -36,7 +36,7 @@
  * 
  */
 
-#include "config.h"
+#include <config.h>
 #include "sceadan.h"
 
 #include <assert.h>
@@ -678,7 +678,7 @@ static const char *sceadan_map_precompiled[] =
  0};
 
 #else
-#warn Sceadan requires LIBLINEAR
+#warning Sceadan requires LIBLINEAR
 #endif  /* HAVE_LIBLINEAR */
 
 
