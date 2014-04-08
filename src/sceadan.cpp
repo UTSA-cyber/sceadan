@@ -580,7 +580,7 @@ const struct model *sceadan_model_default()
 
 void sceadan_model_dump(const struct model *model,FILE *f)
 {
-    fprintf(f,"#include \"config.h\"");
+    fprintf(f,"#include <config.h>");
     fprintf(f,"#ifdef HAVE_LINEAR_H");
     fprintf(f,"#include <linear.h>");
     fprintf(f,"#endif");
