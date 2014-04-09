@@ -74,3 +74,4 @@ Makefile
 depcomp
 install-sh
 missing
+sceadan_model_precompiled.dat

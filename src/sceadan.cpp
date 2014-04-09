@@ -338,7 +338,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
 }
 
 
-    static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
+static void dump_vectors_as_json(const sceadan *s,const sceadan_vectors_t *v)
 {
     printf("{ \"file_type\": %d,\n",s->file_type);
     if(v->file_name) printf("  \"file_name\": \"%s\",\n",v->file_name);
@@ -580,15 +580,6 @@ const struct model *sceadan_model_default()
 
 void sceadan_model_dump(const struct model *model,FILE *f)
 {
-    fprintf(f,"#include <config.h>");
-    fprintf(f,"#ifdef HAVE_LINEAR_H");
-    fprintf(f,"#include <linear.h>");
-    fprintf(f,"#endif");
-    fprintf(f,"#ifdef HAVE_LIBLINEAR_LINEAR_H");
-    fprintf(f,"#include <liblinear/linear.h>");
-    fprintf(f,"#endif");
-    fprintf(f,"#include \"sceadan.h\"");
-
     if(model->param.nr_weight){
         fprintf(f,"static int weight_label[]={");
         for(int i=0;i<model->param.nr_weight;i++){
