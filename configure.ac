@@ -65,3 +65,11 @@ if test "${with_noopt}" = "yes" ; then
 fi
 
 AC_OUTPUT
+if test ! -r src/sceadan_model_precompiled.dat ; then
+  echo ''
+  echo '***                                                      ***'
+  echo '*** type make download to download the precompiled model ***'
+  echo '***                                                      ***'
+fi
+
+
