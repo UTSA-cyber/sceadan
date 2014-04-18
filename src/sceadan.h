@@ -27,6 +27,7 @@ struct sceadan_t {
     int file_type;                    // when dumping
     struct sceadan_vectors *v;
     int ngram_mode;
+    char *feature_mask;                  // for feature selection/reduction
 };
 typedef struct sceadan_t sceadan;
 
@@ -35,7 +36,7 @@ typedef struct sceadan_t sceadan;
  */
 
 void sceadan_model_dump(const struct model *,FILE *outfile); // to stdout
-sceadan *sceadan_open(const char *model_file,const char *map_file); // use 0 for default model precompiled
+sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file); // use 0 for default model precompiled
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
 void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);
@@ -49,6 +50,8 @@ void sceadan_close(sceadan *);
 void sceadan_dump_json_on_classify(sceadan *,int file_type,FILE *out); // dump JSON vectors instead of classifying
 void sceadan_dump_nodes_on_classify(sceadan *,int file_type,FILE *out); // dump  vectors instead of classifying
 void sceadan_set_ngram_mode(sceadan *s,int mode);
+int sceadan_init_feature_mask(const char *file_name,int ngram_mode);
+int sceadan_reduce_feature(sceadan *s,const char *file_name,int n); // select top n features for each type, and dump resulted feature mask to a file
 
 #define SCEADAN_NGRAM_MODE_DEFAULT 2
 

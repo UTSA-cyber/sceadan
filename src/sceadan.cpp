@@ -268,16 +268,19 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
 
 #define assert_and_set(i)    {assert(set[i]==0);set[i]=1;} // make sure it hasn't been set before
 #define set_index_value(k,v) {assert(idx<MAX_NR_ATTR);x[idx].index = k; x[idx].value = v; idx++;}
+#define feature_enabled(k)   {s->feature_mask[k]=='1'}
 static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *v, struct feature_node *x )
 {
     int idx = 0;                        /* cannot exceed MAX_NR_ATTR */
+    int key = 0;
     int set[MAX_NR_ATTR];
     memset(set,0,sizeof(set));
     
     /* Add the unigrams to the vector */
     for (int i = 0 ; i < NUNIGRAMS; i++) {
-        if(v->ucv[i].avg > 0.0){
-            set_index_value(START_UNIGRAMS + i,v->ucv[i].avg)
+        key = START_UNIGRAMS + i;
+        if(v->ucv[i].avg > 0.0 && feature_enabled(key)){
+            set_index_value(key, v->ucv[i].avg)
         }
     }
     
@@ -285,8 +288,9 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     if (s->ngram_mode & 1) {
         for (int i = 0; i < NUNIGRAMS; i++) {
             for (int j = 0; j < NUNIGRAMS; j++) {
-                if (v->bcv_all[i][j].avg > 0.0) {
-                    set_index_value(START_BIGRAMS_ALL+bigramcode(i,j), v->bcv_all[i][j].avg);
+                key = START_BIGRAMS_ALL+bigramcode(i,j);
+                if (v->bcv_all[i][j].avg > 0.0 && feature_enabled(key)) {
+                    set_index_value(key, v->bcv_all[i][j].avg);
                 }
             }
         }
@@ -294,8 +298,9 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     if (s->ngram_mode & 2) {
         for (int i = 0; i < NUNIGRAMS; i++) {
             for (int j = 0; j < NUNIGRAMS; j++) {
-                if (v->bcv_even[i][j].avg > 0.0) {
-                    set_index_value(START_BIGRAMS_EVEN+bigramcode(i,j), v->bcv_even[i][j].avg);
+                key = START_BIGRAMS_EVEN+bigramcode(i,j);
+                if (v->bcv_even[i][j].avg > 0.0 && feature_enabled(key)) {
+                    set_index_value(key, v->bcv_even[i][j].avg);
                 }
             }
         }
@@ -303,29 +308,46 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     if (s->ngram_mode & 4) {
         for (int i = 0; i < NUNIGRAMS; i++) {
             for (int j = 0; j < NUNIGRAMS; j++) {
-                if (v->bcv_odd[i][j].avg > 0.0) {
-                    set_index_value(START_BIGRAMS_ODD+bigramcode(i,j), v->bcv_odd[i][j].avg);
+                key = START_BIGRAMS_ODD+bigramcode(i,j);
+                if (v->bcv_odd[i][j].avg > 0.0 && feature_enabled(key)) {
+                    set_index_value(key, v->bcv_odd[i][j].avg);
                 }
             }
         }
     }
     
-    if (s->ngram_mode & 0x00008) { set_index_value(STATS_IDX_BIGRAM_ENTROPY,  v->mfv.bigram_entropy); }
-    if (s->ngram_mode & 0x00010) { set_index_value(STATS_IDX_ITEM_ENTROPY,    v->mfv.item_entropy); }
-    if (s->ngram_mode & 0x00020) { set_index_value(STATS_IDX_HAMMING_WEIGHT,  v->mfv.hamming_weight.avg); }
-    if (s->ngram_mode & 0x00040) { set_index_value(STATS_IDX_MEAN_BYTE_VALUE, v->mfv.mean_byte_value.avg); }
-    if (s->ngram_mode & 0x00080) { set_index_value(STATS_IDX_STDDEV_BYTE_VAL, v->mfv.stddev_byte_val.avg); }
-    if (s->ngram_mode & 0x00100) { set_index_value(STATS_IDX_ABS_DEV,         v->mfv.abs_dev); }
-    if (s->ngram_mode & 0x00200) { set_index_value(STATS_IDX_SKEWNESS,        v->mfv.skewness); }
-    if (s->ngram_mode & 0x00400) { set_index_value(STATS_IDX_KURTOSIS,        v->mfv.kurtosis); }
-    if (s->ngram_mode & 0x00800) { set_index_value(STATS_IDX_CONTIGUITY,      v->mfv.max_byte_streak.avg); }
-    if (s->ngram_mode & 0x01000) { set_index_value(STATS_IDX_MAX_BYTE_STREAK, v->mfv.max_byte_streak.tot); /* don't normalize! */ }
-    if (s->ngram_mode & 0x02000) { set_index_value(STATS_IDX_LO_ASCII_FREQ,   v->mfv.lo_ascii_freq.avg); }
-    if (s->ngram_mode & 0x04000) { set_index_value(STATS_IDX_MED_ASCII_FREQ,   v->mfv.med_ascii_freq.avg); }
-    if (s->ngram_mode & 0x08000) { set_index_value(STATS_IDX_HI_ASCII_FREQ,   v->mfv.hi_ascii_freq.avg); }
-    if (s->ngram_mode & 0x10000) { set_index_value(STATS_IDX_BYTE_VAL_CORRELATION, v->mfv.byte_val_correlation); }
-    if (s->ngram_mode & 0x20000) { set_index_value(STATS_IDX_BYTE_VAL_FREQ_CORRELATION, v->mfv.byte_val_freq_correlation); }
-    if (s->ngram_mode & 0x40000) { set_index_value(STATS_IDX_UNI_CHI_SQ,      v->mfv.uni_chi_sq); }
+    key = STATS_IDX_BIGRAM_ENTROPY;
+    if (s->ngram_mode & 0x00008 && feature_enabled(key)) { set_index_value(key, v->mfv.bigram_entropy); }
+    key = STATS_IDX_ITEM_ENTROPY;
+    if (s->ngram_mode & 0x00010 && feature_enabled(key)) { set_index_value(key, v->mfv.item_entropy); }
+    key = STATS_IDX_HAMMING_WEIGHT; 
+    if (s->ngram_mode & 0x00020 && feature_enabled(key)) { set_index_value(key, v->mfv.hamming_weight.avg); }
+    key = STATS_IDX_MEAN_BYTE_VALUE;
+    if (s->ngram_mode & 0x00040 && feature_enabled(key)) { set_index_value(key, v->mfv.mean_byte_value.avg); }
+    key = STATS_IDX_STDDEV_BYTE_VAL;
+    if (s->ngram_mode & 0x00080 && feature_enabled(key)) { set_index_value(key, v->mfv.stddev_byte_val.avg); }
+    key = STATS_IDX_ABS_DEV;
+    if (s->ngram_mode & 0x00100 && feature_enabled(key)) { set_index_value(key, v->mfv.abs_dev); }
+    key = STATS_IDX_SKEWNESS;
+    if (s->ngram_mode & 0x00200 && feature_enabled(key)) { set_index_value(key, v->mfv.skewness); }
+    key = STATS_IDX_KURTOSIS;
+    if (s->ngram_mode & 0x00400 && feature_enabled(key)) { set_index_value(key, v->mfv.kurtosis); }
+    key = STATS_IDX_CONTIGUITY;
+    if (s->ngram_mode & 0x00800 && feature_enabled(key)) { set_index_value(key, v->mfv.max_byte_streak.avg); }
+    key = STATS_IDX_MAX_BYTE_STREAK;
+    if (s->ngram_mode & 0x01000 && feature_enabled(key)) { set_index_value(key, v->mfv.max_byte_streak.tot); /* don't normalize! */ }
+    key = STATS_IDX_LO_ASCII_FREQ;
+    if (s->ngram_mode & 0x02000 && feature_enabled(key)) { set_index_value(key, v->mfv.lo_ascii_freq.avg); }
+    key = STATS_IDX_MED_ASCII_FREQ;
+    if (s->ngram_mode & 0x04000 && feature_enabled(key)) { set_index_value(key, v->mfv.med_ascii_freq.avg); }
+    key = STATS_IDX_HI_ASCII_FREQ;
+    if (s->ngram_mode & 0x08000 && feature_enabled(key)) { set_index_value(key, v->mfv.hi_ascii_freq.avg); }
+    key = STATS_IDX_BYTE_VAL_CORRELATION;
+    if (s->ngram_mode & 0x10000 && feature_enabled(key)) { set_index_value(key, v->mfv.byte_val_correlation); }
+    key = STATS_IDX_BYTE_VAL_FREQ_CORRELATION;
+    if (s->ngram_mode & 0x20000 && feature_enabled(key)) { set_index_value(key, v->mfv.byte_val_freq_correlation); }
+    key = STATS_IDX_UNI_CHI_SQ;
+    if (s->ngram_mode & 0x40000 && feature_enabled(key)) { set_index_value(key, v->mfv.uni_chi_sq); }
     
 
     /* Add the Bias if we are using Bias. It goes last, apparently */
@@ -673,10 +695,11 @@ static const char *sceadan_map_precompiled[] =
 #endif  /* HAVE_LIBLINEAR */
 
 
+static const char *default_feature_mask_file = "sceadan.feature_mask";
 /*
- * Open another classifier, reading both a model and a map.
+ * Open another classifier, reading both a model, a map and a feature_mask.
  */
-sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for default model
+sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file) // use 0 for default model
 {
 #ifdef HAVE_LIBLINEAR
     sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
@@ -696,19 +719,33 @@ sceadan *sceadan_open(const char *model_file,const char *map_file) // use 0 for 
     } else {
         s->types = sceadan_map_precompiled;
     }
+    s->feature_mask = (char *)calloc(MAX_NR_ATTR, sizeof(char));
+    if(!feature_mask_file){
+        feature_mask_file = default_feature_mask_file;
+    }
+    if(sceadan_load_feature_mask(s, feature_mask_file) < 0){
+        goto fail; 
+    }
     return s;
+
+fail:
+    if(s->v) free(s->v);
+    if(s->feature_mask) free(s->feature_mask);
+    free(s);
+    return 0;  
 #else
     return 0;                           /* no liblinear */
 #endif
 }
 
 void sceadan_close(sceadan *s)
-{
+{DEFAULT_FEATURE_MASK_FILE
 #ifdef HAVE_LIBLINEAR
     free(s->v);
+    free(s->feature_mask);
     memset(s,0,sizeof(*s));             /* clean object re-use */
     free(s);
-#endif
+#endifTURE_MASK_FILE
 }
 
 void sceadan_clear(sceadan *s)
@@ -792,4 +829,98 @@ void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
 void sceadan_set_ngram_mode(sceadan *s,int ngram_mode)
 {
     s->ngram_mode = ngram_mode;
+}
+
+int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
+{
+#ifdef HAVE_LIBLINEAR
+// TODO-LUO
+    if(sceadan_dump_feature_mask(s, file_name) < 0){
+        return -1;
+    }  
+    return 0;
+#endif
+}
+
+int sceadan_load_feature_mask(sceadan *s,const char *file_name)
+{
+    int count=0;
+    const int fd = open(file_name, O_RDONLY);
+    if(fd < 0){
+        printf("Error opening file %s\n", file_name);
+        return -1;
+    }
+    memset(s->feature_mask, '0', MAX_NR_ATTR);
+    for(int i = 0; i < MAX_NR_ATTR; i++){
+        int ch = fgetc(fd);
+        assert(ch=='0' || ch=='1');
+        if(ch=='1'){
+            s->feature_mask[i] = char(ch);
+            count ++;
+        }
+    }
+    if(close(fd) < 0){
+        printf("Error closing file %s\n", file_name);
+        return -1;
+    }
+    // make sure feature_mask match the model
+    assert(count==get_nr_feature( s->model ));
+    return 0;
+}
+
+int sceadan_dump_feature_mask(const char *feature_mask,const char *file_name)
+{
+    const int fd = open(file_name, O_CREAT);
+    if(fd < 0){
+        printf("Error opening file %s\n", file_name);
+        return -1;
+    }
+    write(fd, feature_mask, MAX_NR_ATTR*sizeof(char));
+    if(close(fd) < 0){
+        printf("Error closing file %s\n", file_name);
+        return -1;
+    }
+    return 0;
+}
+
+int sceadan_init_feature_mask(const char *file_name,int ngram_mode)
+{
+    assert(file_name!=0);
+    // initialize feature_mask based on ngram_mode
+    char *feature_mask = (char *)calloc(MAX_NR_ATTR, sizeof(char)); 
+
+    /* unigrams */
+    memset(feature_mask+START_UNIGRAMS, '1', NUNIGRAMS);
+    /* bigrams */
+    if(ngram_mode & 1){
+        memset(feature_mask+START_BIGRAMS_ALL, '1', NBIGRAMS);
+    }
+    if(ngram_mode & 2){
+        memset(feature_mask+START_BIGRAMS_EVEN, '1', NBIGRAMS);
+    }
+    if(ngram_mode & 4){
+        memset(feature_mask+START_BIGRAMS_ODD, '1', NBIGRAMS);
+    }
+    /* stats */
+    if (ngram_mode & 0x00008) { feature_mask[STATS_IDX_BIGRAM_ENTROPY]            = '1';}
+    if (ngram_mode & 0x00010) { feature_mask[STATS_IDX_ITEM_ENTROPY]              = '1';}
+    if (ngram_mode & 0x00020) { feature_mask[STATS_IDX_HAMMING_WEIGHT]            = '1';}
+    if (ngram_mode & 0x00040) { feature_mask[STATS_IDX_MEAN_BYTE_VALUE]           = '1';}
+    if (ngram_mode & 0x00080) { feature_mask[STATS_IDX_STDDEV_BYTE_VAL]           = '1';}
+    if (ngram_mode & 0x00100) { feature_mask[STATS_IDX_ABS_DEV]                   = '1';}
+    if (ngram_mode & 0x00200) { feature_mask[STATS_IDX_SKEWNESS]                  = '1';}
+    if (ngram_mode & 0x00400) { feature_mask[STATS_IDX_KURTOSIS]                  = '1';}
+    if (ngram_mode & 0x00800) { feature_mask[STATS_IDX_CONTIGUITY]                = '1';}
+    if (ngram_mode & 0x01000) { feature_mask[STATS_IDX_MAX_BYTE_STREAK]           = '1';}
+    if (ngram_mode & 0x02000) { feature_mask[STATS_IDX_LO_ASCII_FREQ]             = '1';}
+    if (ngram_mode & 0x04000) { feature_mask[STATS_IDX_MED_ASCII_FREQ]            = '1';}
+    if (ngram_mode & 0x08000) { feature_mask[STATS_IDX_HI_ASCII_FREQ]             = '1';}
+    if (ngram_mode & 0x10000) { feature_mask[STATS_IDX_BYTE_VAL_CORRELATION]      = '1';}
+    if (ngram_mode & 0x20000) { feature_mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1';}
+    if (ngram_mode & 0x40000) { feature_mask[STATS_IDX_UNI_CHI_SQ]                = '1';}
+
+    // dump intial feature_mask into file
+    int ret = sceadan_dump_feature_mask(feature_mask, file_name);
+    free(feature_mask); 
+    return ret;
 }
