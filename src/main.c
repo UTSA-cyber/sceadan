@@ -38,6 +38,7 @@
  ************************************************************/
 
 #include "config.h"
+#include <ctype.h>
 #include <inttypes.h>
 #include <assert.h>
 #include <ftw.h>
@@ -177,7 +178,7 @@ static void process_dir( const          char path[])
 }
 
 
-static int get_type(const char *name)
+static int type_for_name(const char *name)
 {
     int ival = atoi(name);
     if(ival) return ival;
@@ -189,6 +190,14 @@ static int get_type(const char *name)
     exit(1);
 }
 
+static const char *name_for_type(int n)
+{
+    sceadan *sc = sceadan_open(0,0,0);
+    const char *ret = sceadan_name_for_type(sc,n);
+    sceadan_close(sc);
+    return ret;
+}
+
 void usage(void) __attribute__((noreturn));
 void usage()
 {
@@ -196,20 +205,21 @@ void usage()
     puts("where [options] are:");
     printf("infile - file to analyze. Specify '-' to input from stdin\n");
     printf("for training:\n");
-    printf("  -j <class>    - generate features for <class> and output in JSON format\n");
-    printf("  -t <class>    - generate a liblinear training for class <class>\n");
-    printf("  -P            - report the blocks and byte ranges sampled to stderr\n");
-    printf("  -s N          - specifies a random number generator seed.\n");
-    printf("  -x            - omit file headers (the first block)\n");
-    printf("  -p 0-100      - specifies the percentage of blocks to sample (default 100)\n");
-    printf("  -n M          - ngram mode (0=disjoint, 1=overlapping, 2=even/odd)\n");
-    printf("  -R n          - reduce feature by selecting top 'n' features based on feature weight.\n");
+    printf("  -j <class>  - generate features for <class> and output in JSON format\n");
+    printf("  -t <class>  - generate a liblinear training for class <class>\n");
+    printf("  -P          - report the blocks and byte ranges sampled to stderr\n");
+    printf("  -s N        - specifies a random number generator seed.\n");
+    printf("  -x          - omit file headers (the first block)\n");
+    printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
+    printf("  -n M        - ngram mode (0=disjoint, 1=overlapping, 2=even/odd)\n");
+    printf("  -R n        - reduce feature by selecting top 'n' features based on feature weight.\n");
     printf("  -F <feature_mask_file> - feature mask file name for output.\n");
 
     printf("\nfor classifying:\n");
     printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
     
     printf("\ngeneral:\n");
+    printf("  -T [#|name|-] - If #, provide the sceadan type name; if name, provide the type number; if -, list\n");
     printf("  -b <size>   - specifies blocksize (default %zd) for block-by-block classification.\n",block_size);
     printf("  -h          - generate help (-hh for more)\n");
     printf("  -f <feature_mask_file> - feature mask file name for input.\n");
@@ -230,21 +240,37 @@ int main (int argc, char *const argv[])
 {
     int ch;
     int opt_ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
-    while((ch = getopt(argc,argv,"b:ef:F:j:m:n:Pp:r:R:t:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
         case 'f': feature_mask_file_in  = optarg; break;
         case 'F': feature_mask_file_out = optarg; break;
-        case 'j': opt_json  = get_type(optarg); break;
+        case 'j': opt_json  = type_for_name(optarg); break;
         case 'm': opt_model = optarg; break;
         case 'P': opt_preport = 1; break;
         case 'p': opt_percentage = atoi(optarg) ; break;
         case 'r': opt_seed = atoi(optarg);break; /* seed the random number generator */
         case 'R': opt_reduce = atoi(optarg); assert(opt_reduce>0); break;
-        case 't': opt_train = get_type(optarg); break;
+        case 't': opt_train = type_for_name(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;
         case 'n': opt_ngram_mode = atoi(optarg);break;
+        case 'T':
+            if(optarg[0]=='-'){
+                for(int i=1;;i++){
+                    const char *name = name_for_type(i);
+                    if(name==0) exit(0);
+                    printf("%d\t%s\n",i,name);
+                }
+            }
+            if(isdigit(optarg[0])){
+                const char *name = name_for_type(atoi(optarg));
+                if(name==0) fprintf(stderr,"%s: invalid number\n",optarg);
+                else printf("%s\n",name);
+            } else {
+                printf("%d\n",type_for_name(optarg));
+            }
+            exit(0);
         }
     }
     if (opt_help) usage();
