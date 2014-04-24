@@ -71,7 +71,10 @@ int    opt_help = 0;
 int    opt_preport  = 0;        /* report percentage sampled to pfd */
 int    opt_percentage = 100;
 int    opt_seed = 0;                    /* random number seed */
+int    opt_reduce = 0;          /* top n feature to select while doing feature reduction */
 
+const char *feature_mask_file_in  = 0;
+const char *feature_mask_file_out = 0;
 const char *opt_model = 0;
 
 static sceadan *s = 0;                         /* the sceadan we are using */
@@ -179,7 +182,7 @@ static int type_for_name(const char *name)
 {
     int ival = atoi(name);
     if(ival) return ival;
-    sceadan *sc = sceadan_open(0,0);
+    sceadan *sc = sceadan_open(0,0,0);
     ival = sceadan_type_for_name(sc,name);
     sceadan_close(sc);
     if(ival>0) return ival;
@@ -189,7 +192,7 @@ static int type_for_name(const char *name)
 
 static const char *name_for_type(int n)
 {
-    sceadan *sc = sceadan_open(0,0);
+    sceadan *sc = sceadan_open(0,0,0);
     const char *ret = sceadan_name_for_type(sc,n);
     sceadan_close(sc);
     return ret;
@@ -209,6 +212,8 @@ void usage()
     printf("  -x          - omit file headers (the first block)\n");
     printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
     printf("  -n M        - ngram mode (0=disjoint, 1=overlapping, 2=even/odd)\n");
+    printf("  -R n        - reduce feature by selecting top 'n' features based on feature weight.\n");
+    printf("  -F <feature_mask_file> - feature mask file name for output.\n");
 
     printf("\nfor classifying:\n");
     printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
@@ -217,10 +222,12 @@ void usage()
     printf("  -T [#|name|-] - If #, provide the sceadan type name; if name, provide the type number; if -, list\n");
     printf("  -b <size>   - specifies blocksize (default %zd) for block-by-block classification.\n",block_size);
     printf("  -h          - generate help (-hh for more)\n");
+    printf("  -f <feature_mask_file> - feature mask file name for input.\n");
+
     puts("");
     if(opt_help>1){
         puts("Classes");
-        sceadan *sc = sceadan_open(0,0);
+        sceadan *sc = sceadan_open(0,0,0);
         for(int i=0;sceadan_name_for_type(sc,i);i++){
             printf("\t%2d : %s\n",i,sceadan_name_for_type(sc,i));
         }
@@ -233,14 +240,17 @@ int main (int argc, char *const argv[])
 {
     int ch;
     int opt_ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
-    while((ch = getopt(argc,argv,"b:ej:m:n:Pp:r:T:t:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
         switch(ch){
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
+        case 'f': feature_mask_file_in  = optarg; break;
+        case 'F': feature_mask_file_out = optarg; break;
         case 'j': opt_json  = type_for_name(optarg); break;
         case 'm': opt_model = optarg; break;
         case 'P': opt_preport = 1; break;
         case 'p': opt_percentage = atoi(optarg) ; break;
         case 'r': opt_seed = atoi(optarg);break; /* seed the random number generator */
+        case 'R': opt_reduce = atoi(optarg); assert(opt_reduce>0); break;
         case 't': opt_train = type_for_name(optarg); break;
         case 'x': opt_omit = 1; break;
         case 'h': opt_help++; break;
@@ -265,6 +275,7 @@ int main (int argc, char *const argv[])
     }
     if (opt_help) usage();
 
+
     argc -= optind;
     argv += optind;
 
@@ -273,9 +284,15 @@ int main (int argc, char *const argv[])
         usage();
     }
 
-    s = sceadan_open(opt_model,0);
+    s = sceadan_open(opt_model,0, feature_mask_file_in);
     sceadan_set_ngram_mode(s,opt_ngram_mode);
 
+    if (opt_reduce!=0){
+        // feature reducetion generate new feature_mask file 
+        assert(feature_mask_file_out!=0);
+        int ret = sceadan_reduce_feature(s, feature_mask_file_out, opt_reduce);
+        exit(ret);
+    }
 
     if(argc < 1) usage();
     if(strcmp(argv[0],"-")==0){         /* process stdin */
