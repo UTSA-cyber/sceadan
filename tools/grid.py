@@ -299,10 +299,14 @@ class Worker(Thread):
 class LocalWorker(Worker):
     def run_one(self,c,g):
         cmdline = self.get_cmd(c,g)
-        result = Popen(cmdline,shell=True,stdout=PIPE,stderr=PIPE,stdin=PIPE).stdout
-        for line in result.readlines():
+        print("cmd: ",cmdline)
+        (stdout,stderr) =  Popen(cmdline,shell=True,stdout=PIPE,stderr=PIPE,stdin=PIPE).communicate()
+        stdout = stdout.decode('utf-8')
+        for line in stdout.split('\n'):
             if str(line).find('Cross') != -1:
                 return float(line.split()[-1][0:-1])
+        print("ERROR:",stderr)
+        raise RuntimeError("command failed")
 
 class SSHWorker(Worker):
     def __init__(self,name,job_queue,result_queue,host,options):

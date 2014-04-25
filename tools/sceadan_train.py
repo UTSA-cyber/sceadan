@@ -14,7 +14,7 @@ if sys.version_info < (3,3):
     raise RuntimeError("Requires Python 3.3 or above")
 
 
-import sys,re,os,collections,random,multiprocessing
+import sys,re,os,collections,random,multiprocessing,glob
 from subprocess import call,PIPE,Popen
 from ttable import ttable
 from collections import defaultdict
@@ -114,11 +114,21 @@ def split_data():
         the_train_files[ftype] = files[pivot:]
 
     # Save in the shelve
+    assert len(the_test_files) > 0
+    assert len(the_train_files) > 0
     db['test_files'] = the_test_files
     db['train_files'] = the_train_files
         
     # Now find out how many blocks we want for each file type
-    blocks = min([blocks_in_files(the_test_files[f]) for f in filetypes()])
+    blocks = min([blocks_in_files(the_test_files[ftype]) for ftype in filetypes()])
+
+    if blocks==0:
+        print("ERROR: One of the file types has no examplars")
+        for ftype in filetypes():
+            if blocks_in_files(the_test_files[ftype])==0:
+                print(" FILE TYPE {} has no examplars".format(ftype))
+        assert(0)
+
     if args.maxblocks and blocks>args.maxblocks: blocks = arg.maxblocks
     db['blocks'] = blocks
     db['train_blocksize'] = args.train_blocksize
@@ -128,8 +138,10 @@ def split_data():
         blks = []
         for fn in the_test_files[ftype]:
             blks += [(fn,i) for i in range(0,blocks_in_file(fn))]
+        assert len(blks) > 0
         random.shuffle(blks)
         db[ftype] = list(sorted(blks[0:blocks]))
+        assert len(db[ftype]) > 0
 
 def print_data():
     print("Data directory:",datadir())
@@ -189,12 +201,13 @@ def validate_train_file():
         assert(indexes==sorted(indexes))
         linecount += 1
     print("Total validated lines:",linecount)
+    assert(linecount>0)
 
 ################################################################
 ## Training Vector Generation
 ################################################################
 
-def generate_train_vectors_for_type(ftype):
+def generate_train_file_for_type(ftype):
     """Run sceadan for the specific blocks for a specific file
     type. Output goes to a temporary file whose name is returned to
     the caller. The files are generated in parallel with the
@@ -207,36 +220,46 @@ def generate_train_vectors_for_type(ftype):
     cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-']
     if args.ngram_mode:
         cmd += ['-n',str(args.ngram_mode)]
-    db['train_blocksize'] = args.train_blocksize
-    db['vector_generation_cmd'] = " ".join(cmd)
-    p = Popen(cmd,stdout=out,stdin=PIPE)
-    ret = ""
+    #
+    # run Sceadan, put the result into a file
+    #
+    p = Popen(cmd,stdout=out,stdin=PIPE) 
     blocks_by_file = {}
+
+    if len(db[ftype])==0:
+        print("ERROR: no file/block pairs of type type {}".format(ftype))
+        assert(0)
     for (fn,block) in db[ftype]:
         if args.train_noblock0 and block==0:
             continue            # do not add block 0?
         if fn not in blocks_by_file: 
             blocks_by_file[fn] = set()
         blocks_by_file[fn].add(block)
+
     for (fn,blocks) in blocks_by_file.items():
         f = open(fn,"rb")
         for blk in blocks:
             f.seek(blk * args.train_blocksize)
             p.stdin.write(f.read(args.train_blocksize))
     p.stdin.close()
-    p.wait()
+    ret = p.wait()
+    if ret!=0:
+        print("command: "," ".join(cmd))
+        print("return: ",ret)
+        assert(ret==0)
     out.close()
     return outfn
 
-def generate_train_vectors():
+def generate_train_file():
     """Generate the training vectors for liblinear from the train database."""
     if os.path.exists(train_file()):
         print("Will not re-generate train vectors: {} already exists".format(train_file()))
         return
     tmp_file   = train_file()+".tmp"
-    if os.path.exists(tmp_file): os.unlink(tmp_file)
+    if os.path.exists(tmp_file):
+        os.unlink(tmp_file)
 
-    print("Generating train vectors with j={}".format(args.j))
+    print("Generating train vectors")
     t1 = time.time()
     f = open(tmp_file,"wb")
     if args.j>1:
@@ -245,12 +268,13 @@ def generate_train_vectors():
     else:
         import multiprocessing.dummy
         pool = multiprocessing.dummy.Pool(1)
-    for fn in pool.imap_unordered(generate_train_vectors_for_type,filetypes()):
+    for fn in pool.imap_unordered(generate_train_file_for_type,filetypes()):
         f.write(open(fn,"rb").read())
         os.unlink(fn)
     f.close()
     os.rename(tmp_file,train_file())
     print(hms_time("Time to generate training vectors",time.time()-t0))
+    
 
 def train_model():
     import sys
@@ -318,7 +342,7 @@ def get_sceadan_score_for_filetype(ftype):
     
     # Compute the file count and the block count
     file_count = len(test_files(ftype))
-    block_count = blocks_in_files(test_files())
+    block_count = blocks_in_files(test_files(ftype))
     if args.test_noblock0:
         block_count -= file_count # ignoring the first block of each file
 
@@ -372,6 +396,7 @@ def generate_confusion():
     files_per_type     = {}
     blocks_per_type    = {}
     classified_types = set()
+
     for (ftype,tally,file_count,block_count) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
         sceadan_score_rows[ftype] = tally
         classified_types = classified_types.union(set(tally.keys()))
@@ -405,9 +430,9 @@ def generate_confusion():
         rowcounter += 1
         if rowcounter % 5 ==0:
             t.append_data([''])
-        f = openexp("confusion.txt","w")
-        f.write(t.typeset(mode='text'))
-        print(t.typeset(mode='text'))
+    f = openexp("confusion.txt","w")
+    f.write(t.typeset(mode='text'))
+    print(t.typeset(mode='text'))
     db['overall_accuracy'] = (total_correct*100.0)/total_events
     db['average_accuracy_per_class'] = percent_correct_sum/len(filetypes())
         
@@ -423,7 +448,6 @@ def generate_confusion():
     print("Keys in database:",list(db.keys()))
     info('train_blocksize')
     info('test_blocksize')
-    info('vector_generation_cmd')
     info('liblinear_train_command')
     info('overall_accuracy')
     info('average_accuracy_per_class')
@@ -465,7 +489,7 @@ if __name__=="__main__":
     parser.add_argument("--copymodel",help="Copy model from this directory")
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
-    parser.add_argument('--j',help='specify concurrency factor',type=int,default=1)
+    parser.add_argument('--j',help='specify concurrency factor',type=int,default=multiprocessing.cpu_count())
     parser.add_argument("--trainexe",help="Liblinear train executable",default='../liblinear-1.94-omp/train')
     parser.add_argument("--verbose",help="Print full detail",action='store_true')
     parser.add_argument('--train_blocksize',type=int,default=4096,help='blocksize for training.')
@@ -483,6 +507,7 @@ if __name__=="__main__":
     parser.add_argument('--validate',help='Just validate the test data',action='store_true')
     parser.add_argument("--dbdump",help="Dump the named database")
     parser.add_argument("--stest",help="test the shelf",action='store_true')
+    parser.add_argument("--zap",help="Erase directory if it exists",action='store_true')
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
@@ -498,6 +523,10 @@ if __name__=="__main__":
         raise RuntimeError("trainexe {} not found".format(args.trainexe))
 
     if args.stest: stest()      # shelf test
+    if args.zap:
+        for fn in glob.glob(os.path.join(args.exp,'*')):
+            print("Erasing",fn)
+            os.unlink(fn)
 
     if args.validate:
         print_data()
@@ -541,7 +570,8 @@ if __name__=="__main__":
     print_data()
 
     if not args.notrain:
-        generate_train_vectors()
+        generate_train_file()
+        validate_train_file()
         train_model()
     generate_confusion()
 
