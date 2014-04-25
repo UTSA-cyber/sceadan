@@ -9,6 +9,7 @@ mcompile_SOURCES = mcompile.cpp $(SCEADAN)
 
 download:
 	wget $(MODEL)
+	@echo 'Type "make distclean" to erase downloaded model.'
 
 new: mcompile
 	./mcompile model sceadan_model_precompiled.dat
