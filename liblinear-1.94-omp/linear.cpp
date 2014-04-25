@@ -1009,8 +1009,8 @@ static void solve_l2r_l1l2_svr(
 
 	double d, G, H;
 	double Gmax_old = INF;
-	double Gmax_new, Gnorm1_new;
-	double Gnorm1_init;
+	double Gmax_new=0, Gnorm1_new=0;
+	double Gnorm1_init=0;
 	double *beta = new double[l];
 	double *QD = new double[l];
 	double *y = prob->y;
@@ -1408,8 +1408,8 @@ static void solve_l1r_l2_svc(
 	double sigma = 0.01;
 	double d, G_loss, G, H;
 	double Gmax_old = INF;
-	double Gmax_new, Gnorm1_new;
-	double Gnorm1_init;
+	double Gmax_new=0, Gnorm1_new=0;
+	double Gnorm1_init=0;
 	double d_old, d_diff;
 	double loss_old, loss_new;
 	double appxcond, cond;
