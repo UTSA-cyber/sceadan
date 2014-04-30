@@ -52,6 +52,9 @@
 #include <math.h>
 #include <stdint.h>
 
+#include<vector>
+#include<algorithm>
+
 /* We require liblinear */
 #ifdef HAVE_LIBLINEAR
 
@@ -944,6 +947,18 @@ int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
     return 0;
 }
 
+struct weight_t{
+    int idx;
+    double w;
+
+    weight_t(int _idx, double _w){
+        idx = _idx;
+        w = _w;
+    }
+};
+typedef weight_t weight;
+bool comp_weight(weight w1, weight w2) { return (w1.w>w2.w); }
+
 int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
 {
 #ifdef HAVE_LIBLINEAR
@@ -952,33 +967,21 @@ int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
     assert(n > 0 && n < n_feature);
     // generate feature mask using local index range [0, n_feature)
     int *mask_l = (int *) calloc(n_feature, sizeof(int));
-    int *top_n = (int *) calloc(n, sizeof(int));
+    std::vector<weight> ws;
     for(int i=0; i<n_class; i++){                           // select feature for each class
-        for(int j=0; j<n_feature; j++){                     // identify top n features based on weight (built-in min-heap is preferred if we do it in C++)
-            double w1 = fabs(s->model->w[i+j*n_class]);
-            int insert = 0;
-            for(; insert<n&&insert<j; insert++){
-                double w2 = fabs(s->model->w[i+top_n[insert]*n_class]);
-                if(w1 > w2){
-                    break;
-                } 
-            } 
-            if(insert!=n){
-                for(int k=n-2; k>=insert; k--){
-                    top_n[k+1] = top_n[k]; 
-                }
-                top_n[insert] = j;
-            }
+        for(int j=0; j<n_feature; j++){                     
+            // s->model->w = [f1_c1, f1_c2, ... f1_cn, f2_c1 ... f2_cn, ... ] 
+            ws.push_back(weight(j, fabs(s->model->w[ i+j*n_class ])));
         }
+        std::sort(ws.begin(), ws.end(), comp_weight);
         // union selected features for different classes
         for(int k=0; k<n; k++){
-            mask_l[ top_n[k] ] = 1;
-            //printf("%6d:%f   ", top_n[k], s->model->w[i+top_n[k]*n_class]);
+            mask_l[ ws[k].idx ] = 1;
+            //printf("%6d:%f   ", ws[k].idx, ws[k].w);
         }
         //printf("\n");
+        ws.clear();
     }
-    free(top_n);
-    top_n = NULL;
     // convert index from local range [0, n_feature) to global range [1, MAX_NR_ATTR)
     char *mask_g = (char *) malloc(MAX_NR_ATTR*sizeof(char));
     memset(mask_g, '0', MAX_NR_ATTR);
