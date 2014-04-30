@@ -354,7 +354,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     
 
     /* Add the Bias if we are using Bias. It goes last, apparently */
-    if (s->model->bias >= 0 ) {
+    if (s->model && s->model->bias >= 0 ) {
         set_index_value(get_nr_feature( s->model ) + 1, s->model->bias);
     }
     /* And note that we are at the end of the vectors */
@@ -898,8 +898,8 @@ void sceadan_build_feature_mask(sceadan *s)     // initialize feature_mask based
     if (s->ngram_mode & 0x20000) { s->f->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
     if (s->ngram_mode & 0x40000) { s->f->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
 
-    // make sure feature_mask match the model
-    assert(count==get_nr_feature( s->model ));
+    // make sure feature_mask match the model (if we have a model )
+    if(s->model) assert(count==get_nr_feature( s->model ));
 }
 
 int sceadan_load_feature_mask(sceadan *s,const char *file_name)

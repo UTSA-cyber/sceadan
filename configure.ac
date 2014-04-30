@@ -69,7 +69,7 @@ if test ! -r src/sceadan_model_precompiled.dat ; then
   echo ''
   echo '***                                                      ***'
   echo '*** type make download to download the precompiled model ***'
-  echo '***                                                      ***'
+  echo '*** (not necessary if you want to build a new model.)    ***'
 fi
 
 
