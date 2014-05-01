@@ -899,8 +899,6 @@ void sceadan_build_feature_mask(sceadan *s)     // initialize feature_mask based
     if (s->ngram_mode & 0x20000) { s->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
     if (s->ngram_mode & 0x40000) { s->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
 
-    // make sure feature_mask match the model (if we have a model )
-    if(s->model) assert(count==get_nr_feature( s->model ));
 }
 
 int sceadan_load_feature_mask(sceadan *s,const char *file_name)

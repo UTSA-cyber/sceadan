@@ -34,8 +34,11 @@ def expname(fn):
 def openexp(fn,mode):
     return open(expname(fn),mode)
 
-def train_file():
+def train_filename():
     return os.path.join(args.exp,"vectors_to_train")
+
+def types_filename():
+    return expname("types.txt")
 
 def model_file():
     return os.path.join(args.exp,"model")
@@ -46,13 +49,13 @@ def hms_time(label,t):
 
 def sceadan_type_for_name(name):
     try:
-        int(Popen([args.exe,'-T',name],stdout=PIPE).communicate()[0])
+        int(Popen([args.exe,'-C',types_filename(),'-T',name],stdout=PIPE).communicate()[0])
     except ValueError as e:
         print("Invalid type name: {}".format(name))
         exit(1)
 
 def sceadan_name_for_type(t):
-    return Popen([args.exe,'-T',str(t)],stdout=PIPE).communicate()[0]
+    return Popen([args.exe,'-C',types_filename(),'-T',str(t)],stdout=PIPE).communicate()[0]
 
 
 ################################################################
@@ -193,12 +196,12 @@ def print_sample():
         print("\n")
     
 def validate_train_file():
-    if not train_file():
+    if not train_filename():
         print("No train file to validate")
         return
-    print("Train file:",train_file())
+    print("Train file:",train_filename())
     linecount = 0
-    for line in open(train_file(),"r"):
+    for line in open(train_filename(),"r"):
         items = line.strip().split(" ")
         indexes = [int(v.split(":")[0]) for v in items[1:]]
         values  = [float(v.split(":")[0]) for v in items[1:]]
@@ -221,7 +224,7 @@ def generate_train_file_for_type(ftype):
 
     outfn = os.path.join(args.exp,'vectors.'+ftype)
     out = open(outfn,"wb")
-    cmd = [args.exe,'-b',str(args.train_blocksize),'-t',ftype,'-']
+    cmd = [args.exe,'-C',types_filename(),'-b',str(args.train_blocksize),'-t',ftype,'-']
     if args.ngram_mode:
         cmd += ['-n',str(args.ngram_mode)]
     #
@@ -256,10 +259,10 @@ def generate_train_file_for_type(ftype):
 
 def generate_train_file():
     """Generate the training vectors for liblinear from the train database."""
-    if os.path.exists(train_file()):
-        print("Will not re-generate train vectors: {} already exists".format(train_file()))
+    if os.path.exists(train_filename()):
+        print("Will not re-generate train vectors: {} already exists".format(train_filename()))
         return
-    tmp_file   = train_file()+".tmp"
+    tmp_file   = train_filename()+".tmp"
     if os.path.exists(tmp_file):
         os.unlink(tmp_file)
 
@@ -276,9 +279,8 @@ def generate_train_file():
         f.write(open(fn,"rb").read())
         os.unlink(fn)
     f.close()
-    os.rename(tmp_file,train_file())
+    os.rename(tmp_file,train_filename())
     print(hms_time("Time to generate training vectors",time.time()-t0))
-    
 
 def train_model():
     import sys
@@ -297,7 +299,7 @@ def train_model():
         cmd += ['-log2g','null','-gnuplot','null']
         cmd += ['-svmtrain',args.trainexe]
         cmd += ['-out',dataset_out]
-        cmd += [train_file()]
+        cmd += [train_filename()]
         print(" ".join(cmd))
         t0 = time.time()
         call(cmd)
@@ -322,7 +324,7 @@ def train_model():
                     best_rate = this_rate
                     c = this_c
         print("Using c={} (best rate={}) from file".format(c,best_rate))
-    cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',str(c),train_file(),model_file()]
+    cmd = [args.trainexe,'-e',"{}".format(args.epsilon),'-c',str(c),train_filename(),model_file()]
     t0 = time.time()
     call(cmd)
     db['liblinear_train_command'] = " ".join(cmd)
@@ -342,7 +344,7 @@ def get_sceadan_score_for_filetype(ftype):
     tally = defaultdict(int)
     import re
     pat = re.compile("(\d+)\s+(.*) #")
-    cmd = [args.exe]
+    cmd = [args.exe,'-C',types_filename()]
     
     # Compute the file count and the block count
     file_count = len(test_files(ftype))
@@ -414,6 +416,8 @@ def generate_confusion():
 
     t.append_head(['    ','file ', 'block'])
     t.append_head(['type','count', 'count'] + classtypes)
+    t.set_col_alignment(2,t.RIGHT)
+    t.set_col_alignment(3,t.RIGHT)
     total_events = 0
     total_correct = 0
     percent_correct_sum= 0
@@ -548,6 +552,11 @@ if __name__=="__main__":
         exit(1)
     if not os.path.exists(args.exp):
         os.mkdir(args.exp)
+
+    # Create the filetypes list
+    with openexp("types.txt","w") as f:
+        for line in filetypes():
+            f.write(line+"\n")
 
     if args.copyexp:
         print("Copying training data from {} to {}".format(args.copyexp,args.exp))
