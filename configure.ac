@@ -6,7 +6,7 @@
 
 AC_INIT(SCEADAN, 1.2.1, bugs@afflib.org)
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile liblinear-1.94-omp/Makefile])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE

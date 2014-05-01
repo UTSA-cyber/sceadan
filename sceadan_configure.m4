@@ -1,6 +1,7 @@
 ################################################################
 AC_CHECK_HEADERS([linear.h liblinear/linear.h])
-AC_CHECK_LIB([linear],[load_model])
+liblinear="no"
+AC_CHECK_LIB([linear],[load_model],[liblinear="yes"],[AC_MSG_WARN([Sceadan requires liblinear])])
 
 # This file may be in several locations depending on how this file is included
 # But don't do it when cross-compiling

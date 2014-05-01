@@ -45,7 +45,11 @@ def hms_time(label,t):
     return "{}: {} ({} seconds)".format(label,str(datetime.timedelta(seconds=t)),t)
 
 def sceadan_type_for_name(name):
-    return int(Popen([args.exe,'-T',name],stdout=PIPE).communicate()[0])
+    try:
+        int(Popen([args.exe,'-T',name],stdout=PIPE).communicate()[0])
+    except ValueError as e:
+        print("Invalid type name: {}".format(name))
+        exit(1)
 
 def sceadan_name_for_type(t):
     return Popen([args.exe,'-T',str(t)],stdout=PIPE).communicate()[0]
@@ -518,9 +522,9 @@ if __name__=="__main__":
 
     # Check to make sure files exists
     if not os.path.exists(args.exe):
-        raise RuntimeError("exe {} not found".format(args.exe))
+        raise RuntimeError("executable (--exe) {} not found".format(args.exe))
     if not os.path.exists(args.trainexe):
-        raise RuntimeError("trainexe {} not found".format(args.trainexe))
+        raise RuntimeError("executable (--trainexe) {} not found".format(args.trainexe))
 
     if args.stest: stest()      # shelf test
     if args.zap:
