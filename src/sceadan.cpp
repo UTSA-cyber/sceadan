@@ -83,11 +83,13 @@
 struct sceadan_t {
     const struct model *model;          // liblinear model
     struct sceadan_vectors *v;          // internal used by sceadan
+    typedef std::map<std::string, int>  typemap_t;
+    typedef std::pair<std::string,int>  types_pair;
+    typemap_t types; // maps type names to liblinear class
     FILE *dump_json;
     FILE *dump_nodes;
     int file_type;                    // when dumping
     int ngram_mode;
-
     const char *mask_file;              // feature mask file (not clear why it needs to be here)
     char *mask;                         // feature mask
 };
@@ -239,33 +241,23 @@ typedef struct {
 } mfv_t;
 
 /* END TYPEDEFS FOR I/O */
-struct sceadan_type_t {
-    int code;
-    const char *name;
-};
-
-extern struct sceadan_type_t sceadan_types[];
-
 
 /**
  * implementaiton hidden from sceadan users.
  */
 struct sceadan_vectors {
-    typedef std::map<const char *,const int> typemap_t;
-    typedef std::pair<const char *,const int>     types_pair;
-    typemap_t types; // maps type names to liblinear class
     ucv_t ucv;                          /* unigram statistics */
     bcv_t bcv_all;                      /* all bigram statistics */
     bcv_t bcv_even;                     /* even bigram statistics */
     bcv_t bcv_odd;                      /* odd bigram statistics */
     mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.unigram_count */
-    uint8_t prev_value;                   /* last value from previous loop iteration */
-    uint64_t prev_count;                     /* number of prev_vals in a row*/
+    uint8_t prev_value;                 /* last value from previous loop iteration */
+    uint64_t prev_count;                /* number of prev_vals in a row*/
     const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
 
-#define MODEL_DEFAULT_FILENAME ("model")                 /* default model file */
+#define MODEL_DEFAULT_FILENAME ("model") /* default model file */
 
 #define RANDOMNESS_THRESHOLD (.995)     /* ignore things more random than this */
 #define UCV_CONST_THRESHOLD  (.5)       /* ignore UCV more than this */
@@ -276,18 +268,18 @@ static inline double cube(double v)   { return v*v*v;}
 
 const char *sceadan_name_for_type(const sceadan *s,int code)
 {
-    for (sceadan_vectors::typemap_t::const_iterator it = s->v->types.begin(); it!=s->v->types.end(); it++){
-        if( (*it).second == code) return (*it).first;
+    for (sceadan_t::typemap_t::const_iterator it = s->types.begin(); it!=s->types.end(); it++){
+        if( (*it).second == code) return (*it).first.c_str();
     }
     return(0);
 }
 
 int sceadan_type_for_name(const sceadan *s,const char *name)
 {
-    if (s->v->types.find(name) != s->v->types.end()){
-        return s->v->types[name];
-    }
-    return(-1);
+    sceadan_t::typemap_t::const_iterator it = s->types.find(name);
+
+    if (it == s->types.end()) return -1;
+    return (*it).second;
 }
 
 static uint64_t max ( const uint64_t a, const uint64_t b ) {
@@ -739,14 +731,14 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
         if (!model) return 0;           // cannot load
     }
 
-    sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
+    sceadan *s    = new sceadan();
     s->model      = model ? model : sceadan_model_precompiled();;
     s->v          = new sceadan_vectors_t();
     s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     /* Load up the default types */
     int type_counter = 0;
     while(sceadan_map_precompiled[type_counter]){
-        s->v->types.insert(sceadan_vectors::types_pair(sceadan_map_precompiled[type_counter],type_counter));
+        s->types[ sceadan_map_precompiled[type_counter] ] = type_counter;
         type_counter++;
     }
     if (class_file){
@@ -755,8 +747,13 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
             std::string str;
             while(getline(i,str)) {
                 size_t endpos = str.find_last_not_of(" \n\r\t");
-                if( std::string::npos != endpos ) str = str.substr( 0, endpos+1 );
-                s->v->types.insert(sceadan_vectors::types_pair(strdup(str.c_str()),type_counter++));
+                if (std::string::npos != endpos ) str = str.substr( 0, endpos+1 );
+
+                /* Don't add unless it's not present */
+                
+                if (s->types.find(str) == s->types.end()) {
+                    s->types[ str ] = type_counter++;
+                }
             }
         }
     }
@@ -797,8 +794,7 @@ void sceadan_close(sceadan *s)
         s->v = 0;
     }
     if(s->mask) { free(s->mask);}
-    memset(s,0,sizeof(*s));             /* clean object re-use */
-    free(s);
+    delete s;
 }
 
 void sceadan_clear(sceadan *s)
