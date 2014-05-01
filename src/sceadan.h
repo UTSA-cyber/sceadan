@@ -18,7 +18,10 @@ typedef struct sceadan_t sceadan;
  */
 
 void sceadan_model_dump(const struct model *,FILE *outfile); // to stdout
-sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file); // use 0 for default model precompiled
+sceadan *sceadan_open(const char *model_file,                // liblinear file
+                      const char *class_file,                // list of lines with additional classes
+                      const char *feature_mask_file); // array of 0s and 1s with which features to use
+
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
 void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);

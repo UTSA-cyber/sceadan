@@ -57,7 +57,6 @@
 #define O_BINARY 0
 #endif
 
-
 #include "sceadan.h"
 
 /* Globals for the stand-alone program */
@@ -75,6 +74,7 @@ int    opt_reduce = 0;          /* top n feature to select while doing feature r
 
 const char *feature_mask_file_in  = 0;
 const char *feature_mask_file_out = 0;
+const char *opt_class_file = 0;
 const char *opt_model = 0;
 
 static sceadan *s = 0;                         /* the sceadan we are using */
@@ -182,7 +182,7 @@ static int type_for_name(const char *name)
 {
     int ival = atoi(name);
     if(ival) return ival;
-    sceadan *sc = sceadan_open(0,0,0);
+    sceadan *sc = sceadan_open(0,opt_class_file,0);
     ival = sceadan_type_for_name(sc,name);
     sceadan_close(sc);
     if(ival>0) return ival;
@@ -192,7 +192,7 @@ static int type_for_name(const char *name)
 
 static const char *name_for_type(int n)
 {
-    sceadan *sc = sceadan_open(0,0,0);
+    sceadan *sc = sceadan_open(0,opt_class_file,0);
     const char *ret = sceadan_name_for_type(sc,n);
     sceadan_close(sc);
     return ret;
@@ -219,6 +219,7 @@ void usage()
     printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
     
     printf("\ngeneral:\n");
+    printf("  -C classfile  - Specify a file of user-defined class types (one type per line)\n");
     printf("  -T [#|name|-] - If #, provide the sceadan type name; if name, provide the type number; if -, list\n");
     printf("  -b <size>   - specifies blocksize (default %zd) for block-by-block classification.\n",block_size);
     printf("  -h          - generate help (-hh for more)\n");
@@ -227,7 +228,7 @@ void usage()
     puts("");
     if(opt_help>1){
         puts("Classes");
-        sceadan *sc = sceadan_open(0,0,0);
+        sceadan *sc = sceadan_open(0,opt_class_file,0);
         for(int i=0;sceadan_name_for_type(sc,i);i++){
             printf("\t%2d : %s\n",i,sceadan_name_for_type(sc,i));
         }
@@ -240,8 +241,10 @@ int main (int argc, char *const argv[])
 {
     int ch;
     int opt_ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
-    while((ch = getopt(argc,argv,"b:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
+
+    while((ch = getopt(argc,argv,"b:C:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
         switch(ch){
+        case 'C': opt_class_file = optarg; break;
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
         case 'f': feature_mask_file_in  = optarg; break;
         case 'F': feature_mask_file_out = optarg; break;
@@ -275,7 +278,6 @@ int main (int argc, char *const argv[])
     }
     if (opt_help) usage();
 
-
     argc -= optind;
     argv += optind;
 
@@ -284,7 +286,7 @@ int main (int argc, char *const argv[])
         usage();
     }
 
-    s = sceadan_open(opt_model,0, feature_mask_file_in);
+    s = sceadan_open(opt_model, opt_class_file, feature_mask_file_in);
     sceadan_set_ngram_mode(s,opt_ngram_mode);
 
     if (opt_reduce!=0){

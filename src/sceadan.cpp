@@ -59,6 +59,8 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 
 /* We require liblinear.
  * If it is not available, Sceadan will not compile.
@@ -250,6 +252,7 @@ extern struct sceadan_type_t sceadan_types[];
  */
 struct sceadan_vectors {
     typedef std::map<const char *,const int> typemap_t;
+    typedef std::pair<const char *,const int>     types_pair;
     typemap_t types; // maps type names to liblinear class
     ucv_t ucv;                          /* unigram statistics */
     bcv_t bcv_all;                      /* all bigram statistics */
@@ -728,7 +731,7 @@ static const char *sceadan_map_precompiled[] =
 /*
  * Open another classifier, reading both a model, a map and a feature_mask.
  */
-sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file) // use 0 for default model
+sceadan *sceadan_open(const char *model_file,const char *class_file,const char *feature_mask_file) // use 0 for default model
 {
     const struct model *model = 0;
     if (model_file) {
@@ -741,12 +744,21 @@ sceadan *sceadan_open(const char *model_file,const char *map_file,const char *fe
     s->v          = new sceadan_vectors_t();
     s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     /* Load up the default types */
-    for(int i=0;sceadan_map_precompiled[i];i++){
-        s->v->types.insert(std::pair<const char *,int>(sceadan_map_precompiled[i],i));
+    int type_counter = 0;
+    while(sceadan_map_precompiled[type_counter]){
+        s->v->types.insert(sceadan_vectors::types_pair(sceadan_map_precompiled[type_counter],type_counter));
+        type_counter++;
     }
-    if (map_file){
-        /* Add the rest of the types */
-        assert(0);                      /* need to write this code */
+    if (class_file){
+        std::ifstream i(class_file);
+        if (i.is_open()) {
+            std::string str;
+            while(getline(i,str)) {
+                size_t endpos = str.find_last_not_of(" \n\r\t");
+                if( std::string::npos != endpos ) str = str.substr( 0, endpos+1 );
+                s->v->types.insert(sceadan_vectors::types_pair(strdup(str.c_str()),type_counter++));
+            }
+        }
     }
     s->mask = (char *)calloc(MAX_NR_ATTR, sizeof(char));
     s->mask_file = feature_mask_file;
@@ -957,6 +969,7 @@ int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
     int n_class = get_nr_class(s->model);
     int n_feature = get_nr_feature(s->model); 
     assert(n > 0 && n < n_feature);
+
     // generate feature mask using local index range [0, n_feature)
     int *mask_l = (int *) calloc(n_feature, sizeof(int));
     std::vector<weight> ws;
