@@ -84,7 +84,7 @@ def filetypes(upper=False):
 def ftype_files(ftype):
     """Returns a list of the pathnames for a give filetype in the training set"""
     ftypedir = os.path.join(args.data,ftype)
-    return [os.path.join(ftypedir,fn) if valid_filename(fn) for fn in os.listdir(ftypedir)]
+    return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir) if valid_filename(fn) ]
 
 def train_files(ftype):
     """Returns all of the training files for a file type"""

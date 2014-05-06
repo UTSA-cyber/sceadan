@@ -41,12 +41,9 @@ void TRON::info(const char *fmt,...)
 	(*tron_print_string)(buf);
 }
 
-TRON::TRON(const function *fun_obj, double eps, int max_iter)
+TRON::TRON(const function *fun_obj_, double eps_, int max_iter_):
+    fun_obj(const_cast<function *>(fun_obj_)),eps(eps_),max_iter(max_iter_),tron_print_string(default_print)
 {
-	this->fun_obj=const_cast<function *>(fun_obj);
-	this->eps=eps;
-	this->max_iter=max_iter;
-	tron_print_string = default_print;
 }
 
 TRON::~TRON()

@@ -8,9 +8,15 @@
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 #define INF HUGE_VAL
 
-void print_null(const char *s) {}
+static void print_null(const char *s) {}
 
-void exit_with_help()
+#define VERY_SMALL_NUMBER 0.00000001    /* needs to be this close to be the same */
+static int floating_equal(float a,float b)
+{
+    return fabs(a-b) < VERY_SMALL_NUMBER;
+}
+
+static __attribute__ ((noreturn)) void exit_with_help() 
 {
 	printf(
 	"Usage: train [options] training_set_file [model_file]\n"
@@ -54,7 +60,7 @@ void exit_with_help()
 	exit(1);
 }
 
-void exit_input_error(int line_num)
+static __attribute__ ((noreturn)) void exit_input_error(int line_num)
 {
 	fprintf(stderr,"Wrong input format at line %d\n", line_num);
 	exit(1);
@@ -83,7 +89,7 @@ static char* readline(FILE *input)
 
 void parse_command_line(int argc, char **argv, char *input_file_name, char *model_file_name);
 void read_problem(const char *filename);
-void do_cross_validation();
+void do_cross_validation(void);
 
 struct feature_node *x_space;
 struct parameter param;
@@ -165,7 +171,7 @@ void do_cross_validation()
 	else
 	{
 		for(i=0;i<prob.l;i++)
-			if(target[i] == prob.y[i])
+                    if (floating_equal(target[i],prob.y[i]))
 				++total_correct;
 		printf("Cross Validation Accuracy = %g%%\n",100.0*total_correct/prob.l);
 	}
