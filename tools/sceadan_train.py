@@ -23,6 +23,13 @@ block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
 OpenMP_j    = 4                            # since we compiled with OpenMP, -j4 is enough
 
+def valid_filename(fn):
+    if fn=='Thumbs.db': return False
+    if fn[0]=='.': return False
+    return True
+
+ignore_pat = ['Thumbs.db','.*']
+
 
 ################################################################
 ### Utilitiy functions
@@ -77,7 +84,7 @@ def filetypes(upper=False):
 def ftype_files(ftype):
     """Returns a list of the pathnames for a give filetype in the training set"""
     ftypedir = os.path.join(args.data,ftype)
-    return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir)]
+    return [os.path.join(ftypedir,fn) if valid_filename(fn) for fn in os.listdir(ftypedir)]
 
 def train_files(ftype):
     """Returns all of the training files for a file type"""
@@ -529,6 +536,9 @@ if __name__=="__main__":
         raise RuntimeError("executable (--exe) {} not found".format(args.exe))
     if not os.path.exists(args.trainexe):
         raise RuntimeError("executable (--trainexe) {} not found".format(args.trainexe))
+    
+    if not args.exp:
+        raise RuntimeError("experiment directory (--exp) must be provided")
 
     if args.stest: stest()      # shelf test
     if args.zap:
