@@ -178,12 +178,22 @@ static void process_dir( const          char path[])
 }
 
 
+static int alldigits(const char *str)
+{
+    while(*str){
+        if(isdigit(*str)==0) return 0;
+        str++;
+    }
+    return 1;
+}
+
+
+
 static int type_for_name(const char *name)
 {
-    int ival = atoi(name);
-    if(ival) return ival;
+    if (alldigits(name)) return atoi(name);
     sceadan *sc = sceadan_open(0,opt_class_file,0);
-    ival = sceadan_type_for_name(sc,name);
+    int ival = sceadan_type_for_name(sc,name);
     sceadan_close(sc);
     if(ival>0) return ival;
     fprintf(stderr,"%s: not a valid type name\n",name);
@@ -266,7 +276,7 @@ int main (int argc, char *const argv[])
                     printf("%d\t%s\n",i,name);
                 }
             }
-            if(isdigit(optarg[0])){
+            if(alldigits(optarg)){
                 const char *name = name_for_type(atoi(optarg));
                 if(name==0) fprintf(stderr,"%s: invalid number\n",optarg);
                 else printf("%s\n",name);
