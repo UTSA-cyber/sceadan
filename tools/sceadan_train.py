@@ -203,7 +203,7 @@ def print_sample():
         print("\n")
     
 def validate_train_file():
-    if not train_filename():
+    if not os.path.exists(train_filename()):
         print("No train file to validate")
         return
     print("Train file:",train_filename())
@@ -546,17 +546,6 @@ if __name__=="__main__":
             print("Erasing",fn)
             os.unlink(fn)
 
-    if args.validate:
-        print_data()
-        if args.exp: validate_train_file()
-        exit(0)
-
-    if args.dbdump:
-        db = shelve.open(args.dbdump,writeback=True)
-        for (key,val) in db.items():
-            print("{}={}",(key,val))
-        exit(0)
-
     if not args.exp:
         print("--exp <DIR> must be provided")
         exit(1)
@@ -567,6 +556,17 @@ if __name__=="__main__":
     with openexp("types.txt","w") as f:
         for line in filetypes():
             f.write(line+"\n")
+
+    if args.dbdump:
+        db = shelve.open(args.dbdump,writeback=True)
+        for (key,val) in db.items():
+            print("{}={}",(key,val))
+        exit(0)
+
+    if args.validate:
+        print_data()
+        if args.exp: validate_train_file()
+        exit(0)
 
     if args.copyexp:
         print("Copying training data from {} to {}".format(args.copyexp,args.exp))
@@ -585,7 +585,6 @@ if __name__=="__main__":
             f.write(time.asctime()+"\n")
             f.write(args.note+"\n")
             
-
     t0 = time.time()
 
     db = shelve.open(expname("experiment"),writeback=True)
