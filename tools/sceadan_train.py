@@ -23,6 +23,13 @@ block_count = collections.defaultdict(int) # number of blocks of each file type
 file_count  = collections.defaultdict(int) # number of files of each file type
 OpenMP_j    = 4                            # since we compiled with OpenMP, -j4 is enough
 
+def valid_filename(fn):
+    if fn=='Thumbs.db': return False
+    if fn[0]=='.': return False
+    return True
+
+ignore_pat = ['Thumbs.db','.*']
+
 
 ################################################################
 ### Utilitiy functions
@@ -77,7 +84,7 @@ def filetypes(upper=False):
 def ftype_files(ftype):
     """Returns a list of the pathnames for a give filetype in the training set"""
     ftypedir = os.path.join(args.data,ftype)
-    return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir)]
+    return [os.path.join(ftypedir,fn) for fn in os.listdir(ftypedir) if valid_filename(fn) ]
 
 def train_files(ftype):
     """Returns all of the training files for a file type"""
@@ -196,7 +203,7 @@ def print_sample():
         print("\n")
     
 def validate_train_file():
-    if not train_filename():
+    if not os.path.exists(train_filename()):
         print("No train file to validate")
         return
     print("Train file:",train_filename())
@@ -529,23 +536,15 @@ if __name__=="__main__":
         raise RuntimeError("executable (--exe) {} not found".format(args.exe))
     if not os.path.exists(args.trainexe):
         raise RuntimeError("executable (--trainexe) {} not found".format(args.trainexe))
+    
+    if not args.exp:
+        raise RuntimeError("experiment directory (--exp) must be provided")
 
     if args.stest: stest()      # shelf test
     if args.zap:
         for fn in glob.glob(os.path.join(args.exp,'*')):
             print("Erasing",fn)
             os.unlink(fn)
-
-    if args.validate:
-        print_data()
-        if args.exp: validate_train_file()
-        exit(0)
-
-    if args.dbdump:
-        db = shelve.open(args.dbdump,writeback=True)
-        for (key,val) in db.items():
-            print("{}={}",(key,val))
-        exit(0)
 
     if not args.exp:
         print("--exp <DIR> must be provided")
@@ -557,6 +556,17 @@ if __name__=="__main__":
     with openexp("types.txt","w") as f:
         for line in filetypes():
             f.write(line+"\n")
+
+    if args.dbdump:
+        db = shelve.open(args.dbdump,writeback=True)
+        for (key,val) in db.items():
+            print("{}={}",(key,val))
+        exit(0)
+
+    if args.validate:
+        print_data()
+        if args.exp: validate_train_file()
+        exit(0)
 
     if args.copyexp:
         print("Copying training data from {} to {}".format(args.copyexp,args.exp))
@@ -575,7 +585,6 @@ if __name__=="__main__":
             f.write(time.asctime()+"\n")
             f.write(args.note+"\n")
             
-
     t0 = time.time()
 
     db = shelve.open(expname("experiment"),writeback=True)
