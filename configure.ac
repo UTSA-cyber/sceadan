@@ -16,6 +16,7 @@ AC_PREFIX_PROGRAM(sceadan)
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
+AM_PROG_CC_C_O
 AC_PROG_CC_C99                  dnl please use C99
 
 m4_include([m4/slg_searchdirs.m4])
