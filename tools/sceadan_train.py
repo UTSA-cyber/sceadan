@@ -492,8 +492,6 @@ if __name__=="__main__":
     import argparse,zipfile,os,time,shelve,datetime,shutil
     t0 = time.time()
     print("="*60)
-    print("="*60)
-    print("="*60)
     print(" ".join(sys.argv))
     print(" ")
     parser = argparse.ArgumentParser(description=help_text,
