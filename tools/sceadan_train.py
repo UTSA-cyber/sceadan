@@ -39,9 +39,6 @@ def expname(fn):
     return os.path.join(args.exp,fn)
 
 def compname(fn):
-    return os.path.join(args.comp,fn)
-
-def compname(fn):
     return os.path.join(args.compare,fn)
 
 def openexp(fn,mode):
