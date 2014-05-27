@@ -223,7 +223,7 @@ void usage()
     printf("  -p 0-100    - specifies the percentage of blocks to sample (default 100)\n");
     printf("  -n M        - ngram mode (0=disjoint, 1=overlapping, 2=even/odd)\n");
     printf("  -R n        - reduce feature by selecting top 'n' features based on feature weight.\n");
-    printf("  -F <feature_mask_file> - feature mask file name for output.\n");
+    printf("  -F <feature_mask_write_file> - feature mask file name for output.\n");
 
     printf("\nfor classifying:\n");
     printf("  -m <modelfile>   - use modelfile instead of build-in model\n");
@@ -232,8 +232,8 @@ void usage()
     printf("  -C classfile  - Specify a file of user-defined class types (one type per line)\n");
     printf("  -T [#|name|-] - If #, provide the sceadan type name; if name, provide the type number; if -, list\n");
     printf("  -b <size>   - specifies blocksize (default %zd) for block-by-block classification.\n",block_size);
+    printf("  -f <feature_mask_read_file> - feature mask file name for input.\n");
     printf("  -h          - generate help (-hh for more)\n");
-    printf("  -f <feature_mask_file> - feature mask file name for input.\n");
 
     puts("");
     if(opt_help>1){
