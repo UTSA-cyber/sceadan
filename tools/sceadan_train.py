@@ -38,6 +38,9 @@ ignore_pat = ['Thumbs.db','.*']
 def expname(fn):
     return os.path.join(args.exp,fn)
 
+def compname(fn):
+    return os.path.join(args.compare,fn)
+
 def openexp(fn,mode):
     return open(expname(fn),mode)
 
@@ -339,7 +342,7 @@ def train_model():
 
 
 ################################################################
-### Generate a confusion matrix
+### Generate Experiment Scores
 ################################################################
 def get_sceadan_score_for_file(fn,tally):
     """Score a file, optionally with test blocksize."""
@@ -383,6 +386,32 @@ def get_sceadan_score_for_filetype(ftype):
     return (ftype,tally,file_count,block_count)
 
 
+def generate_scores():
+    import copy
+    db['test_blocksize'] = args.test_blocksize
+
+    # Okay. Get these in a row with a threadpool
+    if args.j>1:
+        import multiprocessing
+        pool = multiprocessing.Pool(args.j)
+    else:
+        import multiprocessing.dummy
+        pool = multiprocessing.dummy.Pool(1)
+    temp_scores        = {}
+    scores             = {}
+
+    for (ftype,tally,file_count,block_count) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
+
+        # Generate each row of the output and save to db
+        temp_scores['TALLY']        = tally
+        temp_scores['FILE_COUNT']   = file_count
+        temp_scores['BLOCK_COUNT']  = block_count
+        scores[ftype]               = copy.deepcopy(temp_scores)
+        temp_scores.clear()
+
+    db['RESULTS'] = scores
+   
+
 def generate_confusion():
     if os.path.exists(expname("confusion.txt")):
         print("Confusion matrix already exists")
@@ -396,30 +425,19 @@ def generate_confusion():
 
     db['test_blocksize'] = args.test_blocksize
 
-    #t.append_head(['File Type','Classifies as'])
+    sceadan_score_rows      = {}
+    files_per_type          = {}
+    blocks_per_type         = {}
+    classified_types        = set()
 
-    # Okay. Get these in a row with a threadpool
-    if args.j>1:
-        import multiprocessing
-        pool = multiprocessing.Pool(args.j)
-    else:
-        import multiprocessing.dummy
-        pool = multiprocessing.dummy.Pool(1)
-    sceadan_score_rows = {}
-    files_per_type     = {}
-    blocks_per_type    = {}
-    classified_types = set()
-
-    for (ftype,tally,file_count,block_count) in pool.imap_unordered(get_sceadan_score_for_filetype,filetypes()):
-        sceadan_score_rows[ftype] = tally
-        classified_types = classified_types.union(set(tally.keys()))
-        files_per_type[ftype] = file_count
-        blocks_per_type[ftype] = block_count
-
+    for key, value in db['RESULTS'].items():
+        temp = value.copy()
+        sceadan_score_rows[key] = temp['TALLY']
+        classified_types        = classified_types.union(set(temp['TALLY'].keys()))
+        files_per_type[key]     = temp['FILE_COUNT']
+        blocks_per_type[key]    = temp['BLOCK_COUNT']
+        
     classtypes = [t.upper() for t in sorted(classified_types)]
-
-    # Get a list of all the classified types
-    # And calculate the precision and recall
 
     t.append_head(['    ','file ', 'block'])
     t.append_head(['type','count', 'count'] + classtypes)
@@ -450,7 +468,7 @@ def generate_confusion():
     print(t.typeset(mode='text'))
     db['overall_accuracy'] = (total_correct*100.0)/total_events
     db['average_accuracy_per_class'] = percent_correct_sum/len(filetypes())
-        
+
     def info(n):
         """Print a value from the database and print in confusion.txt"""
         try:
@@ -466,10 +484,47 @@ def generate_confusion():
     info('liblinear_train_command')
     info('overall_accuracy')
     info('average_accuracy_per_class')
-        
-            
+
+
+def compare():
+    comp = shelve.open(compname("experiment"),writeback=False) 
+    if not 'RESULTS' in comp:
+        print("Compare fail: %s did not store its scores in the database" %(args.compare))
+        return
+    print("\nAccuracy comparison between %s and %s" %(args.exp, args.compare))
+    t = ttable()
+    t.append_head(['type',args.compare,args.exp,' % change'])
+    t.set_col_alignment(1,t.CENTER)
+    t.set_col_alignment(2,t.CENTER)
+    t.set_col_alignment(3,t.CENTER)
+
+    expScore    = {}
+    compScore   = {}
+
+    for key, value in db['RESULTS'].items():
+        temp = value.copy()
+        expTally = temp['TALLY']
+        count = sum(expTally.values())
+        expScore[key] = int(expTally.get(key,0)*100/count)
+      
+    for key, value in comp['RESULTS'].items():
+        temp = value.copy()
+        compTally = temp['TALLY']
+        count = sum(compTally.values())
+        compScore[key] = int(compTally.get(key,0)*100/count)
+    
+    for key, value in sorted(expScore.items()):
+        if key in compScore:
+            data = [key, compScore[key], expScore[key]] + ["{:3.2f}%".format((expScore[key]-compScore[key])/float(compScore[key])*100)]
+        else:
+            data = [key,'N/A', compScore[key], 'N/A']
+
+        t.append_data(data)
+
+    print(t.typeset(mode='text'))
+
 ################################################################
-### Option Parsing
+## Option Parsing
 ################################################################
 
 
@@ -491,6 +546,8 @@ file type is determined by extension."""
 if __name__=="__main__":
     import argparse,zipfile,os,time,shelve,datetime,shutil
     t0 = time.time()
+    print("="*60)
+    print("="*60)
     print("="*60)
     print(" ".join(sys.argv))
     print(" ")
@@ -521,6 +578,8 @@ if __name__=="__main__":
     parser.add_argument("--dbdump",help="Dump the named database")
     parser.add_argument("--stest",help="test the shelf",action='store_true')
     parser.add_argument("--zap",help="Erase directory if it exists",action='store_true')
+    parser.add_argument("--compare",help="Directory of experiment to compare results to")
+
     
     #parser.add_argument('--percentage',help='specifies percentage of blocks to sample',type=int,default=5)
     #parser.add_argument('--samples',help='Number of samples needed for each type',default=10000,type=int)
@@ -593,7 +652,11 @@ if __name__=="__main__":
         generate_train_file()
         validate_train_file()
         train_model()
+    generate_scores()
     generate_confusion()
+
+    if args.compare:
+        compare()
 
     sec = time.time() - t0
     print(hms_time("Elapsed time",sec))
