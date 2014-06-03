@@ -67,8 +67,8 @@ dist/
 __pycache_
 out-*/
 __pycache__
-liblinear-1.94-omp/predict
-liblinear-1.94-omp/train
+liblinear/predict
+liblinear/train
 *.d
 Makefile
 depcomp

@@ -560,7 +560,7 @@ if __name__=="__main__":
     parser.add_argument("--split",help="Fraction of data to be used for testing",default=0.5)
     parser.add_argument("--maxblocks",type=int,help="Max blocks to use for training")
     parser.add_argument('--j',help='specify concurrency factor',type=int,default=multiprocessing.cpu_count())
-    parser.add_argument("--trainexe",help="Liblinear train executable",default='../liblinear-1.94-omp/train')
+    parser.add_argument("--trainexe",help="Liblinear train executable",default='../liblinear/train')
     parser.add_argument("--verbose",help="Print full detail",action='store_true')
     parser.add_argument('--train_blocksize',type=int,default=4096,help='blocksize for training.')
     parser.add_argument('--test_blocksize',type=int,help='blocksize for testing.')
