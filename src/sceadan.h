@@ -4,37 +4,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
-
-#ifndef __BEGIN_DECLS
-#include <winsock.h>
-#if defined(__cplusplus)
-#define __BEGIN_DECLS   extern "C" {
-#define __END_DECLS     }
-#else
-#define __BEGIN_DECLS
-#define __END_DECLS
-#endif
-#endif
-
+#include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
-struct feature_t {
-    const char *mask_file;
-    char *mask;
-};
-typedef struct feature_t feature;
+// Forward definitions 
+struct model;                           // in liblinear
 
-struct sceadan_t {
-    const struct model *model;
-    const char **types;                // array is null-terminated
-    FILE *dump_json;
-    FILE *dump_nodes;
-    int file_type;                    // when dumping
-    struct sceadan_vectors *v;
-    int ngram_mode;
-    feature *f;                  // for feature selection/reduction
-};
 typedef struct sceadan_t sceadan;
 
 /* struct model is defined in liblinear. If you don't have it, it
@@ -42,7 +18,10 @@ typedef struct sceadan_t sceadan;
  */
 
 void sceadan_model_dump(const struct model *,FILE *outfile); // to stdout
-sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file); // use 0 for default model precompiled
+sceadan *sceadan_open(const char *model_file,                // liblinear file
+                      const char *class_file,                // list of lines with additional classes
+                      const char *feature_mask_file); // array of 0s and 1s with which features to use
+
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
 void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);

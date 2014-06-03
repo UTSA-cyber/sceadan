@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
-
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -26,6 +26,7 @@
 /*
  *
  * Development History:
+ *
  *
  * 2014 - Significant refactoring and updating by:
  * Simson L. Garfinkel, Naval Postgraduate School
@@ -52,8 +53,24 @@
 #include <math.h>
 #include <stdint.h>
 
-/* We require liblinear */
-#ifdef HAVE_LIBLINEAR
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+
+/* We require liblinear.
+ * If it is not available, Sceadan will not compile.
+ * (previously it would compile but produce run-time errors)
+ */
+
+#ifndef HAVE_LIBLINEAR
+#error Sceadan requires liblinear
+#endif
 
 #ifdef HAVE_LINEAR_H
 #include <linear.h>
@@ -61,6 +78,30 @@
 #ifdef HAVE_LIBLINEAR_LINEAR_H
 #include <liblinear/linear.h>
 #endif
+
+/* The definitions of the sceadan structure.  A pointer to the
+ * structure is available for the calling C/C++ program, but the
+ * contents are private. */
+
+struct sceadan_t {
+    const struct model *model;          // liblinear model
+    struct sceadan_vectors *v;          // internal used by sceadan
+    typedef std::map<std::string, int>  typemap_t;
+    typedef std::pair<std::string,int>  types_pair;
+    typemap_t types;                    // maps type names to liblinear class
+
+    // For disabling individual features:
+    int ngram_mode;                     // 
+    const char *mask_file;              // feature mask file (not clear why it needs to be here)
+    char *mask;                         // feature mask
+
+
+    // These are set if the feature vectors are dumped:
+    FILE *dump_json; // file where the feature vectors should be dumped as a JSON object
+    FILE *dump_nodes; // file where the feature vector nodes should be dumped
+    int file_type;                    // when dumping
+};
+
 
 /* definitions. Some will be moved out of this file */
 
@@ -75,7 +116,7 @@ uint32_t const nbit_bigram=16;               /* number of bits in a bigram */
 
 
 /* Liblinear index mapping: */
-static const int START_UNIGRAMS=1;  /* 1..256 - unigram counts */
+static const int START_UNIGRAMS=1;         /* 1..256 - unigram counts */
 static const int START_BIGRAMS_EVEN = START_UNIGRAMS+NUNIGRAMS;      /* even bigram counts for bigram FS */
 static const int START_BIGRAMS_ALL  = START_BIGRAMS_EVEN + NBIGRAMS; /* all bigram counts for bigram FS (characters F and S, where FS=F<<8|S) */
 static const int START_BIGRAMS_ODD  = START_BIGRAMS_ALL  + NBIGRAMS; /* odd bigram counts for bigram FS */
@@ -208,28 +249,23 @@ typedef struct {
 } mfv_t;
 
 /* END TYPEDEFS FOR I/O */
-struct sceadan_type_t {
-    int code;
-    const char *name;
-};
 
-extern struct sceadan_type_t sceadan_types[];
-
-/* FUNCTIONS */
-// TODO full path vs relevant path may matter
+/**
+ * implementaiton hidden from sceadan users.
+ */
 struct sceadan_vectors {
     ucv_t ucv;                          /* unigram statistics */
     bcv_t bcv_all;                      /* all bigram statistics */
     bcv_t bcv_even;                     /* even bigram statistics */
     bcv_t bcv_odd;                      /* odd bigram statistics */
     mfv_t mfv;                          /* other statistics; # of unigrams processes is mfv.unigram_count */
-    uint8_t prev_value;                   /* last value from previous loop iteration */
-    uint64_t prev_count;                     /* number of prev_vals in a row*/
+    uint8_t prev_value;                 /* last value from previous loop iteration */
+    uint64_t prev_count;                /* number of prev_vals in a row*/
     const char *file_name;              /* if the vectors came from a file, indicate it here */
 };
 typedef struct sceadan_vectors sceadan_vectors_t;
 
-#define MODEL_DEFAULT_FILENAME ("model")                 /* default model file */
+#define MODEL_DEFAULT_FILENAME ("model") /* default model file */
 
 #define RANDOMNESS_THRESHOLD (.995)     /* ignore things more random than this */
 #define UCV_CONST_THRESHOLD  (.5)       /* ignore UCV more than this */
@@ -237,26 +273,35 @@ typedef struct sceadan_vectors sceadan_vectors_t;
 
 static inline double square(double v) { return v*v;}
 static inline double cube(double v)   { return v*v*v;}
+static inline uint64_t max( const uint64_t a, const uint64_t b ) { return a > b ? a : b; }
+
+/*********************************
+ *** Map file types to numbers ***
+ *********************************/
+
+static const char *sceadan_map_precompiled[] =
+{"UNCLASSIFIED", "TEXT", "CSV", "LOG", "HTML", "XML", "ASPX", "JSON", "JS", "JAVA", 
+ "CSS", "B64", "B85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
+ "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
+ "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
+ "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FS-FAT", "FS-NTFS", "FS-EXT", "EXE",
+ "DLL", "ELF", "BMP", "AES", "RAND",  "PPS", "RAR", "3GP", "7Z", 
+ 0};
 
 const char *sceadan_name_for_type(const sceadan *s,int code)
 {
-    /* This may seem odd, but we don't know how long the array is */
-    for(int i=0;s->types[i];i++){
-        if(i==code) return s->types[i];
+    for (sceadan_t::typemap_t::const_iterator it = s->types.begin(); it!=s->types.end(); it++){
+        if( (*it).second == code) return (*it).first.c_str();
     }
     return(0);
 }
 
 int sceadan_type_for_name(const sceadan *s,const char *name)
 {
-    for(int i=0;s->types[i];i++){
-        if(strcasecmp(name,s->types[i])==0) return i;
-    }
-    return(-1);
-}
+    sceadan_t::typemap_t::const_iterator it = s->types.find(name);
 
-static uint64_t max ( const uint64_t a, const uint64_t b ) {
-    return a > b ? a : b;
+    if (it == s->types.end()) return -1;
+    return (*it).second;
 }
 
 
@@ -268,7 +313,8 @@ static uint64_t max ( const uint64_t a, const uint64_t b ) {
 
 #define assert_and_set(i)    {assert(set[i]==0);set[i]=1;} // make sure it hasn't been set before
 #define set_index_value(k,v) {assert(idx<MAX_NR_ATTR);x[idx].index = k; x[idx].value = v; idx++;}
-#define feature_enabled(k)   s->f->mask[k]=='1'
+#define feature_enabled(k)   s->mask[k]=='1'
+
 static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *v, struct feature_node *x )
 {
     int idx = 0;                        /* cannot exceed MAX_NR_ATTR */
@@ -335,7 +381,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     key = STATS_IDX_CONTIGUITY;
     if (s->ngram_mode & 0x00800 && feature_enabled(key)) { set_index_value(key, v->mfv.max_byte_streak.avg); }
     key = STATS_IDX_MAX_BYTE_STREAK;
-    if (s->ngram_mode & 0x01000 && feature_enabled(key)) { set_index_value(key, v->mfv.max_byte_streak.tot); /* don't normalize! */ }
+    if (s->ngram_mode & 0x01000 && feature_enabled(key)) { set_index_value(key, v->mfv.max_byte_streak.tot); }
     key = STATS_IDX_LO_ASCII_FREQ;
     if (s->ngram_mode & 0x02000 && feature_enabled(key)) { set_index_value(key, v->mfv.lo_ascii_freq.avg); }
     key = STATS_IDX_MED_ASCII_FREQ;
@@ -348,7 +394,6 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     if (s->ngram_mode & 0x20000 && feature_enabled(key)) { set_index_value(key, v->mfv.byte_val_freq_correlation); }
     key = STATS_IDX_UNI_CHI_SQ;
     if (s->ngram_mode & 0x40000 && feature_enabled(key)) { set_index_value(key, v->mfv.uni_chi_sq); }
-    
 
     /* Add the Bias if we are using Bias. It goes last, apparently */
     if (s->model && s->model->bias >= 0 ) {
@@ -489,16 +534,14 @@ static void vectors_finalize ( sceadan_vectors_t *v)
     //v->mfv.max_byte_streak = max_cnt;
     v->mfv.max_byte_streak.avg = (double) v->mfv.max_byte_streak.tot / v->mfv.unigram_count;
 
-    // TODO skewness ?
-    double expectancy_x3 = 0;
-    double expectancy_x4 = 0;
+    double expectancy_x3 = 0;  // for skewness
+    double expectancy_x4 = 0;  // for kurtosis
 
     const double central_tendency = v->mfv.mean_byte_value.avg;
     for (int i = 0; i < NUNIGRAMS; i++) {
 
         // unigram frequency
         v->ucv[i].avg = (double) v->ucv[i].tot / v->mfv.unigram_count;
-
         v->mfv.abs_dev += v->ucv[i].tot * fabs (i - central_tendency);
 
         // item entropy
@@ -525,7 +568,7 @@ static void vectors_finalize ( sceadan_vectors_t *v)
         const double extmp = cube(i) * v->ucv[i].avg; 
 
         expectancy_x3 += extmp;        // for skewness
-        expectancy_x4 += extmp * i;     // for kurtosis
+        expectancy_x4 += extmp * i;    // for kurtosis
     }
 
     const double variance  = (double) v->mfv.stddev_byte_val.tot / v->mfv.unigram_count - square(v->mfv.mean_byte_value.avg);
@@ -662,6 +705,10 @@ void sceadan_model_dump(const struct model *model,FILE *f)
     fprintf(f,"\t\t .nr_weight = %d,\n",model->param.nr_weight);
     fprintf(f,"\t\t .weight_label = %s,\n",model->param.nr_weight ? "weight_label" : "0");
     fprintf(f,"\t\t .weight = %s\n",model->param.nr_weight ? "weight" : "0");
+
+    /* Liblinear 1.9 added model->param.p. The code below fakes it to be 0 if we are running
+     * on Liblinear 1.8 or before, and allows the resulting code to be compiled on Liblinear 1.8 or 1.9
+     */
     fprintf(f,"#ifdef LIBLINEAR_19\n");
 #ifdef LIBLINEAR_19
     fprintf(f,"\t\t ,t.p = %g",model->param.p);
@@ -681,46 +728,45 @@ void sceadan_model_dump(const struct model *model,FILE *f)
 }
 
 
-static const char *sceadan_map_precompiled[] =
-{"UNCLASSIFIED", "TEXT", "CSV", "LOG", "HTML", "XML", "ASPX", "JSON", "JS", "JAVA", 
- "CSS", "B64", "B85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
- "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
- "XLSX", "PPTX", "JPG", "MP3", "M4A", "MP4", "AVI", "WMV", "FLV", "SWF", 
- "WAV", "WMA", "MOV", "DOC",  "XLS", "PPT", "FS-FAT", "FS-NTFS", "FS-EXT", "EXE",
- "DLL", "ELF", "BMP", "AES", "RAND",  "PPS", "RAR", "3GP", "7Z", 
- 0};
-
-#else
-#warning Sceadan requires LIBLINEAR
-#endif  /* HAVE_LIBLINEAR */
-
-
 /*
  * Open another classifier, reading both a model, a map and a feature_mask.
  */
-sceadan *sceadan_open(const char *model_file,const char *map_file,const char *feature_mask_file) // use 0 for default model
+sceadan *sceadan_open(const char *model_file,const char *class_file,const char *feature_mask_file) // use 0 for default model
 {
-#ifdef HAVE_LIBLINEAR
-    sceadan *s = (sceadan *)calloc(sizeof(sceadan),1);
-    if(model_file){
-        s->model = load_model(model_file);
-        if(s->model==0){
-            free(s);
-            return 0;
-        }
-    } else {
-        s->model = sceadan_model_precompiled();
+    const struct model *model = 0;
+    if (model_file) {
+        model = load_model(model_file);
+        if (!model) return 0;           // cannot load
     }
+
+    sceadan *s    = new sceadan();
+    s->model      = model ? model : sceadan_model_precompiled();;
+    s->v          = new sceadan_vectors_t();
     s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
-    s->v = (sceadan_vectors_t *)calloc(sizeof(sceadan_vectors_t),1);
-    if(map_file){
-        assert(0);                      /* need to write this code */
-    } else {
-        s->types = sceadan_map_precompiled;
+    /* Load up the default types */
+    int type_counter = 0;
+    while(sceadan_map_precompiled[type_counter]){
+        s->types[ sceadan_map_precompiled[type_counter] ] = type_counter;
+        type_counter++;
     }
-    s->f = (feature *)calloc(1, sizeof(feature));
-    s->f->mask = (char *)calloc(MAX_NR_ATTR, sizeof(char));
-    s->f->mask_file = feature_mask_file;
+    if (class_file){
+        std::ifstream i(class_file);
+        if (i.is_open()) {
+            std::string str;
+            while(getline(i,str)) {
+                size_t endpos = str.find_last_not_of(" \n\r\t");
+                if (std::string::npos != endpos ) str = str.substr( 0, endpos+1 );
+
+                /* Don't add unless it's not present */
+                
+                if (s->types.find(str) == s->types.end()) {
+                    s->types[ str ] = type_counter++;
+                }
+            }
+        }
+    }
+    s->mask = (char *)calloc(MAX_NR_ATTR, sizeof(char));
+    s->mask_file = feature_mask_file;
     if(feature_mask_file){
         if(sceadan_load_feature_mask(s, feature_mask_file) < 0){
             goto fail;
@@ -745,75 +791,48 @@ sceadan *sceadan_open(const char *model_file,const char *map_file,const char *fe
     return s;
 
 fail:
-    if(s->v) free(s->v);
-    if(s->f) {
-        if(s->f->mask) { free(s->f->mask); }
-        free(s->f);
-    }
-    free(s);
+    sceadan_close(s);                           // will do cleanup
     return 0;  
-#else
-    return 0;                           /* no liblinear */
-#endif
 }
 
 void sceadan_close(sceadan *s)
 {
-#ifdef HAVE_LIBLINEAR
-    free(s->v);
-    if(s->f) {
-        if(s->f->mask) { free(s->f->mask);}
-        free(s->f);
+    if (s->v) {
+        delete s->v;
+        s->v = 0;
     }
-    memset(s,0,sizeof(*s));             /* clean object re-use */
-    free(s);
-#endif
+    if(s->mask) { free(s->mask);}
+    delete s;
 }
 
 void sceadan_clear(sceadan *s)
 {
-#ifdef HAVE_LIBLINEAR
     memset(s->v,0,sizeof(sceadan_vectors_t));
-#endif
 }
 
 int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
 {
-#ifdef HAVE_LIBLINEAR
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     vectors_update(s,buf, bufsize, &v);
     return sceadan_predict(s,&v);
-#else
-    return -1;
-#endif
 }
 
 void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
 {
-#ifdef HAVE_LIBLINEAR
     vectors_update(s,buf, bufsize, s->v);
-#endif
 }
 
 int sceadan_classify(sceadan *s)
 {
-#ifdef HAVE_LIBLINEAR
     int r = sceadan_predict(s,s->v);
     sceadan_clear(s);
     return r;
-#else
-    return -1;
-#endif
 }
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
 
 int sceadan_classify_file(const sceadan *s,const char *file_name)
 {
-#ifdef HAVE_LIBLINEAR
     sceadan_vectors_t v;
     memset(&v,0,sizeof(v));
     v.file_name = file_name;
@@ -827,32 +846,25 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
     }
     if(close(fd)<0) return -1;
     return sceadan_predict(s,&v);
-#else
-    return -1;
-#endif
 }
 
 void sceadan_dump_json_on_classify(sceadan *s,int file_type,FILE *out)
 {
-#ifdef HAVE_LIBLINEAR
     s->dump_json = out;
     s->file_type = file_type;
-#endif
 }
 
 void sceadan_dump_nodes_on_classify(sceadan *s,int file_type,FILE *out)
 {
-#ifdef HAVE_LIBLINEAR
     s->dump_nodes = out;
     s->file_type = file_type;
-#endif
 }
 
 void sceadan_set_ngram_mode(sceadan *s,int ngram_mode)
 {
     s->ngram_mode = ngram_mode;
     // build feature mask if it is not loaded from a file
-    if(!s->f->mask_file){
+    if(!s->mask_file){
         sceadan_build_feature_mask(s);
     }
 }
@@ -860,43 +872,41 @@ void sceadan_set_ngram_mode(sceadan *s,int ngram_mode)
 void sceadan_build_feature_mask(sceadan *s)     // initialize feature_mask based on ngram_mode
 {
     int count = 0;
-    memset(s->f->mask, '0', MAX_NR_ATTR);
+    memset(s->mask, '0', MAX_NR_ATTR);
     /* unigrams */
-    memset(s->f->mask+START_UNIGRAMS, '1', NUNIGRAMS);
+    memset(s->mask+START_UNIGRAMS, '1', NUNIGRAMS);
     count += NUNIGRAMS;
     /* bigrams */
     if(s->ngram_mode & 1){
-        memset(s->f->mask+START_BIGRAMS_ALL, '1', NBIGRAMS);
+        memset(s->mask+START_BIGRAMS_ALL, '1', NBIGRAMS);
         count += NBIGRAMS;
     }
     if(s->ngram_mode & 2){
-        memset(s->f->mask+START_BIGRAMS_EVEN, '1', NBIGRAMS);
+        memset(s->mask+START_BIGRAMS_EVEN, '1', NBIGRAMS);
         count += NBIGRAMS;
     }
     if(s->ngram_mode & 4){
-        memset(s->f->mask+START_BIGRAMS_ODD, '1', NBIGRAMS);
+        memset(s->mask+START_BIGRAMS_ODD, '1', NBIGRAMS);
         count += NBIGRAMS;
     }
     /* stats */
-    if (s->ngram_mode & 0x00008) { s->f->mask[STATS_IDX_BIGRAM_ENTROPY]            = '1'; count ++; }
-    if (s->ngram_mode & 0x00010) { s->f->mask[STATS_IDX_ITEM_ENTROPY]              = '1'; count ++; }
-    if (s->ngram_mode & 0x00020) { s->f->mask[STATS_IDX_HAMMING_WEIGHT]            = '1'; count ++; }
-    if (s->ngram_mode & 0x00040) { s->f->mask[STATS_IDX_MEAN_BYTE_VALUE]           = '1'; count ++; }
-    if (s->ngram_mode & 0x00080) { s->f->mask[STATS_IDX_STDDEV_BYTE_VAL]           = '1'; count ++; }
-    if (s->ngram_mode & 0x00100) { s->f->mask[STATS_IDX_ABS_DEV]                   = '1'; count ++; }
-    if (s->ngram_mode & 0x00200) { s->f->mask[STATS_IDX_SKEWNESS]                  = '1'; count ++; }
-    if (s->ngram_mode & 0x00400) { s->f->mask[STATS_IDX_KURTOSIS]                  = '1'; count ++; }
-    if (s->ngram_mode & 0x00800) { s->f->mask[STATS_IDX_CONTIGUITY]                = '1'; count ++; }
-    if (s->ngram_mode & 0x01000) { s->f->mask[STATS_IDX_MAX_BYTE_STREAK]           = '1'; count ++; }
-    if (s->ngram_mode & 0x02000) { s->f->mask[STATS_IDX_LO_ASCII_FREQ]             = '1'; count ++; }
-    if (s->ngram_mode & 0x04000) { s->f->mask[STATS_IDX_MED_ASCII_FREQ]            = '1'; count ++; }
-    if (s->ngram_mode & 0x08000) { s->f->mask[STATS_IDX_HI_ASCII_FREQ]             = '1'; count ++; }
-    if (s->ngram_mode & 0x10000) { s->f->mask[STATS_IDX_BYTE_VAL_CORRELATION]      = '1'; count ++; }
-    if (s->ngram_mode & 0x20000) { s->f->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
-    if (s->ngram_mode & 0x40000) { s->f->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
+    if (s->ngram_mode & 0x00008) { s->mask[STATS_IDX_BIGRAM_ENTROPY]            = '1'; count ++; }
+    if (s->ngram_mode & 0x00010) { s->mask[STATS_IDX_ITEM_ENTROPY]              = '1'; count ++; }
+    if (s->ngram_mode & 0x00020) { s->mask[STATS_IDX_HAMMING_WEIGHT]            = '1'; count ++; }
+    if (s->ngram_mode & 0x00040) { s->mask[STATS_IDX_MEAN_BYTE_VALUE]           = '1'; count ++; }
+    if (s->ngram_mode & 0x00080) { s->mask[STATS_IDX_STDDEV_BYTE_VAL]           = '1'; count ++; }
+    if (s->ngram_mode & 0x00100) { s->mask[STATS_IDX_ABS_DEV]                   = '1'; count ++; }
+    if (s->ngram_mode & 0x00200) { s->mask[STATS_IDX_SKEWNESS]                  = '1'; count ++; }
+    if (s->ngram_mode & 0x00400) { s->mask[STATS_IDX_KURTOSIS]                  = '1'; count ++; }
+    if (s->ngram_mode & 0x00800) { s->mask[STATS_IDX_CONTIGUITY]                = '1'; count ++; }
+    if (s->ngram_mode & 0x01000) { s->mask[STATS_IDX_MAX_BYTE_STREAK]           = '1'; count ++; }
+    if (s->ngram_mode & 0x02000) { s->mask[STATS_IDX_LO_ASCII_FREQ]             = '1'; count ++; }
+    if (s->ngram_mode & 0x04000) { s->mask[STATS_IDX_MED_ASCII_FREQ]            = '1'; count ++; }
+    if (s->ngram_mode & 0x08000) { s->mask[STATS_IDX_HI_ASCII_FREQ]             = '1'; count ++; }
+    if (s->ngram_mode & 0x10000) { s->mask[STATS_IDX_BYTE_VAL_CORRELATION]      = '1'; count ++; }
+    if (s->ngram_mode & 0x20000) { s->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
+    if (s->ngram_mode & 0x40000) { s->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
 
-    // make sure feature_mask match the model (if we have a model )
-    if(s->model) assert(count==get_nr_feature( s->model ));
 }
 
 int sceadan_load_feature_mask(sceadan *s,const char *file_name)
@@ -907,12 +917,12 @@ int sceadan_load_feature_mask(sceadan *s,const char *file_name)
         printf("Error opening file %s\n", file_name);
         return -1;
     }
-    memset(s->f->mask, '0', MAX_NR_ATTR);
+    memset(s->mask, '0', MAX_NR_ATTR);
     for(int i = 0; i < MAX_NR_ATTR; i++){
         int ch = fgetc(fp);
         assert(ch=='0' || ch=='1');
         if(ch=='1'){
-            s->f->mask[i] = char(ch);
+            s->mask[i] = char(ch);
             count ++;
         }
     }
@@ -932,7 +942,7 @@ int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
         printf("Error opening file %s\n", file_name);
         return -1;
     }
-    if(fwrite(s->f->mask, sizeof(char), MAX_NR_ATTR, fp) != (size_t) MAX_NR_ATTR){
+    if(fwrite(s->mask, sizeof(char), MAX_NR_ATTR, fp) != (size_t) MAX_NR_ATTR){
         printf("Error writing file %s\n", file_name);
         fclose(fp);
         return -1;
@@ -944,48 +954,45 @@ int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
     return 0;
 }
 
+/* Structure to track the weight of each feature */
+struct fweight {
+    int    idx;
+    double w;
+
+    fweight(int _idx, double _w):idx(_idx),w(_w){}
+    static bool comp(const fweight &w1, const fweight &w2) { return (w1.w > w2.w); }
+};
+
 int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
 {
-#ifdef HAVE_LIBLINEAR
     int n_class = get_nr_class(s->model);
     int n_feature = get_nr_feature(s->model); 
     assert(n > 0 && n < n_feature);
+
     // generate feature mask using local index range [0, n_feature)
     int *mask_l = (int *) calloc(n_feature, sizeof(int));
-    int *top_n = (int *) calloc(n, sizeof(int));
+    std::vector<fweight> ws;
     for(int i=0; i<n_class; i++){                           // select feature for each class
-        for(int j=0; j<n_feature; j++){                     // identify top n features based on weight (built-in min-heap is preferred if we do it in C++)
-            double w1 = fabs(s->model->w[i+j*n_class]);
-            int insert = 0;
-            for(; insert<n&&insert<j; insert++){
-                double w2 = fabs(s->model->w[i+top_n[insert]*n_class]);
-                if(w1 > w2){
-                    break;
-                } 
-            } 
-            if(insert!=n){
-                for(int k=n-2; k>=insert; k--){
-                    top_n[k+1] = top_n[k]; 
-                }
-                top_n[insert] = j;
-            }
+        for(int j=0; j<n_feature; j++){                     
+            // s->model->w = [f1_c1, f1_c2, ... f1_cn, f2_c1 ... f2_cn, ... ] 
+            ws.push_back(fweight(j, fabs(s->model->w[ i+j*n_class ])));
         }
+        std::sort(ws.begin(), ws.end(), fweight::comp);
         // union selected features for different classes
         for(int k=0; k<n; k++){
-            mask_l[ top_n[k] ] = 1;
-            //printf("%6d:%f   ", top_n[k], s->model->w[i+top_n[k]*n_class]);
+            mask_l[ ws[k].idx ] = 1;
+            //printf("%6d:%f   ", ws[k].idx, ws[k].w);
         }
         //printf("\n");
+        ws.clear();
     }
-    free(top_n);
-    top_n = NULL;
     // convert index from local range [0, n_feature) to global range [1, MAX_NR_ATTR)
     char *mask_g = (char *) malloc(MAX_NR_ATTR*sizeof(char));
     memset(mask_g, '0', MAX_NR_ATTR);
     int count = 0;  // counting selected features
     int idx_l=0, idx_g=1;
     for(; idx_g<MAX_NR_ATTR; idx_g++){
-        if(s->f->mask[idx_g]=='1'){
+        if(s->mask[idx_g]=='1'){
             if(mask_l[idx_l]){
                 mask_g[idx_g] = '1';
                 count++;
@@ -1014,11 +1021,10 @@ int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
         return -1;
     }
     // successfully reduce feature     
-    free(s->f->mask);
-    s->f->mask = mask_g;
+    free(s->mask);
+    s->mask = mask_g;
     if(sceadan_dump_feature_mask(s, file_name) < 0){
         return -2;
     }
     return 0;
-#endif
 }

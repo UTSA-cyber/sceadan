@@ -6,7 +6,7 @@
 
 AC_INIT(SCEADAN, 1.2.1, bugs@afflib.org)
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile liblinear-1.94-omp/Makefile])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
@@ -16,6 +16,7 @@ AC_PREFIX_PROGRAM(sceadan)
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
+AM_PROG_CC_C_O
 AC_PROG_CC_C99                  dnl please use C99
 
 m4_include([m4/slg_searchdirs.m4])
