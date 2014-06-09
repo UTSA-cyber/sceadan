@@ -84,6 +84,13 @@
  * contents are private. */
 
 struct sceadan_t {
+private:
+    // default copy construction and assignment are meaningless
+    // and not implemented
+    sceadan_t(const sceadan_t &i);
+    sceadan_t &operator=(const sceadan_t &i);
+public:
+    sceadan_t():model(),v(),types(),ngram_mode(),mask_file(),mask(),dump_json(),dump_nodes(),file_type(){}
     const struct model *model;          // liblinear model
     struct sceadan_vectors *v;          // internal used by sceadan
     typedef std::map<std::string, int>  typemap_t;
@@ -956,11 +963,11 @@ int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
 
 /* Structure to track the weight of each feature */
 struct fweight {
-    int    idx;
-    double w;
-
     fweight(int _idx, double _w):idx(_idx),w(_w){}
     static bool comp(const fweight &w1, const fweight &w2) { return (w1.w > w2.w); }
+
+    int    idx;
+    double w;
 };
 
 int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)

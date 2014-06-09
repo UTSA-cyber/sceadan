@@ -1,4 +1,4 @@
-SUBDIRS = doc src tools liblinear-1.94-omp
+SUBDIRS = doc src tools 
 ACLOCAL_AMFLAGS = -I m4
 DISTCLEANFILES = mp.d penmp.d
 

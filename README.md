@@ -28,7 +28,7 @@ Arlington, VA 22201
 
 
 Purpose
-----
+-------
 
 Sceadan is a C module that uses libsvm to determine the "type" of bulk
 data based on file content, without using magic numbers, internal data
@@ -188,7 +188,7 @@ NOT AVAILABLE: "Block mode": calculates statistics on blocks of specified size w
 Bugs and Platforms Tested On
 -------
 
-This version was built for a Linux and Mac environments. 
+This version will build on Linux and Mac environments. 
 
 This version calculates hamming weight and entropy values incorrectly.
 This has no impact on the default operation, since Sceadan does not

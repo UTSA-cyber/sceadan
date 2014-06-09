@@ -6,7 +6,7 @@
 
 AC_INIT(SCEADAN, 1.2.1, bugs@afflib.org)
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile liblinear-1.94-omp/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile tools/Makefile doc/Makefile ])
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
@@ -18,6 +18,7 @@ AC_PROG_CXX
 AC_PROG_INSTALL
 AM_PROG_CC_C_O
 AC_PROG_CC_C99                  dnl please use C99
+AC_PROG_LIBTOOL
 
 m4_include([m4/slg_searchdirs.m4])
 m4_include([m4/slg_gcc_all_warnings.m4])
@@ -51,6 +52,22 @@ AC_CHECK_LIB([linear],[load_model],,AC_MSG_ERROR([missing -llinear]))
 AC_CHECK_HEADERS([math.h],,AC_MSG_ERROR([missing math.h]))
 AC_CHECK_LIB([m],[fmax],,AC_MSG_ERROR([missing -lm]))
 AC_CHECK_FUNCS([fmin fmax log exp fabs sqrt],,AC_MSG_ERROR([missing math functions]))
+
+## libtool required for preparing the hashdb library
+AC_CHECK_PROG(has_libtool, libtool, true, false)
+if test x"$has_libtool" == "xfalse" ; then
+  AC_MSG_ERROR([libhashdb requires libtool, please install libtool such as The GNU Portable Library Tool])
+fi
+
+## If compiling on mingw, add another -lgdi32 to be safe
+## This is required becuase some libraries reference functions in gdi32 and, for whatever reason,
+## the linker is not smart enough to re-check the library
+if test x"$mingw" = x"yes" ; then
+  LIBS="$LIBS -lgdi32"
+else
+  CFLAGS="$CFLAGS -fPIC"
+  CXXFLAGS="$CXXFLAGS -fPIC"
+fi
 
 
 ############## drop optimization flags if requested ################

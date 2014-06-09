@@ -76,3 +76,5 @@ install-sh
 missing
 sceadan_model_precompiled.dat
 compile
+config.guess
+config.sub
