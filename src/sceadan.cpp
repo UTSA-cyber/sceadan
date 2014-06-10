@@ -954,6 +954,14 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
     return sceadan_predict(s,&v);
 }
 
+int  sceadan_classify_buf(const sceadan *s,const u_char *buf,size_t buflen)
+{
+    sceadan_vectors_t v;
+    memset(&v,0,sizeof(v));
+    vectors_update(s,buf,buflen,&v);
+    return sceadan_predict(s,&v);
+}
+
 void sceadan_dump_json_on_classify(sceadan *s,int file_type,FILE *out)
 {
     s->dump_json = out;
