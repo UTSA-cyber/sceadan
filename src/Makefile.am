@@ -7,12 +7,12 @@ bin_PROGRAMS = sceadan_app mcompile
 lib_LTLIBRARIES = libsceadan.la 
 
 libsceadan_la_SOURCES = $(SCEADAN)
-libsceadan_la_LDFLAGS = -static -avoid-version
+libsceadan_la_LDFLAGS = -static -avoid-version -llinear
 
-sceadan_app_SOURCES = main.c $
-sceadan_app_LDADD   = libsceadan.la -lstdc++
+sceadan_app_SOURCES = main.cpp dig.h dig.cpp utf8.h utf8/checked.h utf8/core.h utf8/unchecked.h
+sceadan_app_LDADD   = libsceadan.la -llinear -lstdc++
 mcompile_SOURCES    = mcompile.cpp 
-mcompile_LDADD      = libsceadan.la -lstdc++
+mcompile_LDADD      = libsceadan.la -llinear -lstdc++ 
 
 AM_LDFLAGS = -static
 

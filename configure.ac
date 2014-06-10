@@ -23,7 +23,29 @@ AC_PROG_LIBTOOL
 m4_include([m4/slg_searchdirs.m4])
 m4_include([m4/slg_gcc_all_warnings.m4])
 m4_include([m4/ax_openmp.m4])
-m4_include([sceadan_configure.m4])
+
+################################################################
+## See if we are running on mingw
+
+mingw="no"
+case $host in
+  *-*-*linux*-*) 
+     AC_DEFINE([__LINUX__],1,[Linux operating system functions])
+     ;;
+
+  *mingw*)   
+     LIBS="$LIBS -lpsapi -lws2_32 -lgdi32 -lstdc++"  
+     CPPFLAGS="-DUNICODE -D_UNICODE -D__MSVCRT_VERSION__=0x0601 -DWINVER=0x0500 -D_WIN32_WINNT=0x0500 -g $CPPFLAGS"
+     CPPFLAGS="$CPPFLAGS --static "
+     CFLAGS="$CFLAGS --static -static-libgcc -static-libstdc++"
+     CXXFLAGS="$CXXFLAGS -Wno-format "  # compiler mingw-4.3.0 is broken on I64u formats
+     CXXFLAGS="$CXXFLAGS --static -static-libgcc -static-libstdc++"
+     LDFLAGS="$LDFLAGS --static"
+     mingw="yes"
+     ;;		 		     
+esac
+
+
 
 ################################################################
 # Specify our other headers
@@ -34,6 +56,7 @@ AC_CHECK_HEADERS([string.h])
 #
 # mix-ins for sceadan
 #
+m4_include([sceadan_configure.m4])
 
 AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_FUNCS([vasprintf])
@@ -44,13 +67,8 @@ AX_OPENMP([AC_MSG_NOTICE([OpenMP Found])])
 CFLAGS="$CFLAGS $OPENMP_CFLAGS"
 CXXFLAGS="$CXXFLAGS $OPENMP_CFLAGS"
 
-# -llinear
-AC_CHECK_HEADERS([linear.h liblinear/linear.h])
-AC_CHECK_LIB([linear],[load_model],,AC_MSG_ERROR([missing -llinear]))
-
 # -lm
 AC_CHECK_HEADERS([math.h],,AC_MSG_ERROR([missing math.h]))
-AC_CHECK_LIB([m],[fmax],,AC_MSG_ERROR([missing -lm]))
 AC_CHECK_FUNCS([fmin fmax log exp fabs sqrt],,AC_MSG_ERROR([missing math functions]))
 
 ## libtool required for preparing the hashdb library

@@ -1,7 +1,11 @@
 ################################################################
 AC_CHECK_HEADERS([linear.h liblinear/linear.h])
+AC_CHECK_LIB([m],[fmax],,AC_MSG_ERROR([missing -lm]))
 liblinear="no"
-AC_CHECK_LIB([linear],[load_model],[liblinear="yes"],[AC_MSG_WARN([Sceadan requires liblinear])])
+AC_CHECK_LIB([linear],[load_model],
+              [AC_DEFINE(HAVE_LIBLINEAR,1,[We have liblinear])
+               liblinear="yes"],
+              [AC_MSG_WARN([Sceadan requires liblinear])])
 
 # This file may be in several locations depending on how this file is included
 # But don't do it when cross-compiling

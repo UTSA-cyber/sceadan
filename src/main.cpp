@@ -38,10 +38,16 @@
  ************************************************************/
 
 #include "config.h"
+
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+
+
 #include <ctype.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <ftw.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -53,6 +59,8 @@
 #include <getopt.h>
 #include <limits.h>
 
+#include "dig.h"
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -61,7 +69,7 @@
 
 /* Globals for the stand-alone program */
 
-size_t block_size = 512;
+ssize_t block_size = 512;
 int    opt_json = 0;
 int    opt_train = 0;
 int    opt_omit = 0;
@@ -91,14 +99,8 @@ static void do_output(sceadan *sc,const char *path,uint64_t offset,int file_type
  * ftw() callback to process a file. In this implementation it handles the file whole or block-by-block, prints
  * results with do_output (above), and then returns.
  */
-static int process_file(const char path[],
-                        const struct stat *const sb, /* ignored */
-                        const int typeflag ) 
+static int process_file(const char path[])
 {
-    if(typeflag!=FTW_F){
-        return 0;
-    }
-
     /* To get consistent random numbers, but random numbers that are different for every file,
      * seed the random number generator and then exercise it a specific number of times that is
      * determined by the file name.
@@ -174,12 +176,6 @@ static int process_file(const char path[],
     sceadan_clear(s);
     if(fd) close(fd);
     return 0;
-}
-
-#define FTW_MAXOPENFD 8
-static void process_dir( const          char path[])
-{
-    ftw (path, &process_file, FTW_MAXOPENFD);
 }
 
 
@@ -314,11 +310,19 @@ int main (int argc, char *const argv[])
 
     if(argc < 1) usage();
     if(strcmp(argv[0],"-")==0){         /* process stdin */
-        process_file("-",0,FTW_F);      /* FTW_F is not correct, but it works with process_file */
+        process_file("-");    
     }
 
     while(argc>0){
-        process_dir(*argv);
+        dig d(*argv);
+        for(dig::const_iterator it = d.begin();it!=d.end();++it){
+#ifdef WIN32
+            std::string fname = utf16to8(*it);
+#else
+            std::string fname = *it;
+#endif
+            process_file(fname.c_str());
+        }
         argc--;
         argv++;
     }
