@@ -71,6 +71,7 @@ int    opt_preport  = 0;        /* report percentage sampled to pfd */
 int    opt_percentage = 100;
 int    opt_seed = 0;                    /* random number seed */
 int    opt_reduce = 0;          /* top n feature to select while doing feature reduction */
+int    opt_debug = 0;
 
 const char *feature_mask_file_in  = 0;
 const char *feature_mask_file_out = 0;
@@ -139,7 +140,11 @@ static int process_file(const char path[],
     }
     while(true){
         const ssize_t rd = read(fd, buf, block_size);
+        
+        if(opt_debug) fprintf(stderr,"Read %02x %02x %02x %02x %02x %02x %02x %02x\n",buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
+        
         if(rd==-1){ perror("read"); exit(0);}
+
         /* if we read data, update the vectors */
         if(rd>0){
             sceadan_update(s,buf,rd); 
@@ -252,10 +257,11 @@ int main (int argc, char *const argv[])
     int ch;
     int opt_ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
 
-    while((ch = getopt(argc,argv,"b:C:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
+    while((ch = getopt(argc,argv,"b:dC:ef:F:j:m:n:Pp:R:r:T:t:xh")) != -1){
         switch(ch){
         case 'C': opt_class_file = optarg; break;
         case 'b': block_size = atoi(optarg); opt_blocks = 1; break;
+        case 'd': opt_debug++;break;
         case 'f': feature_mask_file_in  = optarg; break;
         case 'F': feature_mask_file_out = optarg; break;
         case 'j': opt_json  = type_for_name(optarg); break;

@@ -24,11 +24,11 @@ sceadan *sceadan_open(const char *model_file,                // liblinear file
 
 const struct model *sceadan_model_precompiled(void);
 const struct model *sceadan_model_default(void); // from a file
+const char *sceadan_model_name(sceadan *s);
 void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);
 void sceadan_clear(sceadan *s);         // like a close and open
 int sceadan_classify(sceadan *);
 int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
-int sceadan_classify_buf(const sceadan *,const uint8_t *buf,size_t bufsize);
 const char *sceadan_name_for_type(const sceadan *,int type);
 int sceadan_type_for_name(const sceadan *,const char *name);
 void sceadan_close(sceadan *);

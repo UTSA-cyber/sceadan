@@ -90,8 +90,9 @@ private:
     sceadan_t(const sceadan_t &i);
     sceadan_t &operator=(const sceadan_t &i);
 public:
-    sceadan_t():model(),v(),types(),ngram_mode(),mask_file(),mask(),dump_json(),dump_nodes(),file_type(){}
+    sceadan_t():model(),model_name(),v(),types(),ngram_mode(),mask_file(),mask(),dump_json(),dump_nodes(),file_type(){}
     const struct model *model;          // liblinear model
+    std::string model_name;
     struct sceadan_vectors *v;          // internal used by sceadan
     typedef std::map<std::string, int>  typemap_t;
     typedef std::pair<std::string,int>  types_pair;
@@ -333,7 +334,7 @@ static void build_nodes_from_vectors(const sceadan *s, const sceadan_vectors_t *
     for (int i = 0 ; i < NUNIGRAMS; i++) {
         key = START_UNIGRAMS + i;
         if(v->ucv[i].avg > 0.0 && feature_enabled(key)){
-            set_index_value(key, v->ucv[i].avg)
+            set_index_value(key, v->ucv[i].avg);
         }
     }
     
@@ -614,11 +615,11 @@ static void vectors_finalize ( sceadan_vectors_t *v)
  * RANDOM. We consider those vectors abnormal and taken special care
  * of, instead of predicting. 
  */
-static int sceadan_predict(const sceadan *s,const sceadan_vectors_t *v)
+static int sceadan_predict(const sceadan *s,sceadan_vectors_t *v)
 {
     int ret = 0;
 
-    vectors_finalize(s->v);
+    vectors_finalize(v);
     if(s->dump_json){                        /* dumping, not predicting */
         dump_vectors_as_json(s,v);
         return 0;
@@ -735,19 +736,125 @@ void sceadan_model_dump(const struct model *model,FILE *f)
 }
 
 
+const char *sceadan_model_name(sceadan *s)
+{
+    return s->model_name.c_str();
+}
+
+/****************************************************************
+ *** Feature mask
+ ****************************************************************/
+
+
+void sceadan_initialize_feature_mask(sceadan *s)     // initialize feature_mask based on ngram_mode
+{
+    int count = 0;
+    memset(s->mask, '0', MAX_NR_ATTR);
+    /* unigrams */
+    memset(s->mask+START_UNIGRAMS, '1', NUNIGRAMS);
+    count += NUNIGRAMS;
+    /* bigrams */
+    if(s->ngram_mode & 1){
+        memset(s->mask+START_BIGRAMS_ALL, '1', NBIGRAMS);
+        count += NBIGRAMS;
+    }
+    if(s->ngram_mode & 2){
+        memset(s->mask+START_BIGRAMS_EVEN, '1', NBIGRAMS);
+        count += NBIGRAMS;
+    }
+    if(s->ngram_mode & 4){
+        memset(s->mask+START_BIGRAMS_ODD, '1', NBIGRAMS);
+        count += NBIGRAMS;
+    }
+    /* stats */
+    if (s->ngram_mode & 0x00008) { s->mask[STATS_IDX_BIGRAM_ENTROPY]            = '1'; count ++; }
+    if (s->ngram_mode & 0x00010) { s->mask[STATS_IDX_ITEM_ENTROPY]              = '1'; count ++; }
+    if (s->ngram_mode & 0x00020) { s->mask[STATS_IDX_HAMMING_WEIGHT]            = '1'; count ++; }
+    if (s->ngram_mode & 0x00040) { s->mask[STATS_IDX_MEAN_BYTE_VALUE]           = '1'; count ++; }
+    if (s->ngram_mode & 0x00080) { s->mask[STATS_IDX_STDDEV_BYTE_VAL]           = '1'; count ++; }
+    if (s->ngram_mode & 0x00100) { s->mask[STATS_IDX_ABS_DEV]                   = '1'; count ++; }
+    if (s->ngram_mode & 0x00200) { s->mask[STATS_IDX_SKEWNESS]                  = '1'; count ++; }
+    if (s->ngram_mode & 0x00400) { s->mask[STATS_IDX_KURTOSIS]                  = '1'; count ++; }
+    if (s->ngram_mode & 0x00800) { s->mask[STATS_IDX_CONTIGUITY]                = '1'; count ++; }
+    if (s->ngram_mode & 0x01000) { s->mask[STATS_IDX_MAX_BYTE_STREAK]           = '1'; count ++; }
+    if (s->ngram_mode & 0x02000) { s->mask[STATS_IDX_LO_ASCII_FREQ]             = '1'; count ++; }
+    if (s->ngram_mode & 0x04000) { s->mask[STATS_IDX_MED_ASCII_FREQ]            = '1'; count ++; }
+    if (s->ngram_mode & 0x08000) { s->mask[STATS_IDX_HI_ASCII_FREQ]             = '1'; count ++; }
+    if (s->ngram_mode & 0x10000) { s->mask[STATS_IDX_BYTE_VAL_CORRELATION]      = '1'; count ++; }
+    if (s->ngram_mode & 0x20000) { s->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
+    if (s->ngram_mode & 0x40000) { s->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
+
+}
+
+int sceadan_load_feature_mask(sceadan *s,const char *file_name)
+{
+    int count=0;
+    FILE *fp = fopen(file_name, "r");
+    if(fp == NULL){
+        printf("sceadan: error opening mask file %s\n", file_name);
+        return -1;
+    }
+    memset(s->mask, '0', MAX_NR_ATTR);
+    for(int i = 0; i < MAX_NR_ATTR; i++){
+        int ch = fgetc(fp);
+        assert(ch=='0' || ch=='1');
+        if(ch=='1'){
+            s->mask[i] = char(ch);
+            count ++;
+        }
+    }
+    if(fclose(fp) < 0){
+        printf("sceadan: error closing mask file %s\n", file_name);
+        return -1;
+    }
+    // make sure feature_mask match the model
+    assert(count==get_nr_feature( s->model ));
+    return 0;
+}
+
+int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
+{
+    FILE *fp = fopen(file_name, "w");
+    if(fp == NULL){
+        printf("Sceadan: Error opening mask dump file %s\n", file_name);
+        return -1;
+    }
+    if(fwrite(s->mask, sizeof(char), MAX_NR_ATTR, fp) != (size_t) MAX_NR_ATTR){
+        printf("Error writing file %s\n", file_name);
+        fclose(fp);
+        return -1;
+    }
+    if(fclose(fp) < 0){
+        printf("Error closing file %s\n", file_name);
+        return -1;
+    }
+    return 0;
+}
+
+/****************************************************************
+ *** Feature mask
+ ****************************************************************/
+
+
 /*
  * Open another classifier, reading both a model, a map and a feature_mask.
  */
 sceadan *sceadan_open(const char *model_file,const char *class_file,const char *feature_mask_file) // use 0 for default model
 {
-    const struct model *model = 0;
-    if (model_file) {
-        model = load_model(model_file);
-        if (!model) return 0;           // cannot load
+    sceadan *s    = new sceadan();
+    if (model_file && model_file[0]) {
+        s->model_name = model_file;
+        s->model = load_model(model_file);
+    } else {
+        s->model_name = "<precompiled>";
+        s->model      = sceadan_model_precompiled();
     }
 
-    sceadan *s    = new sceadan();
-    s->model      = model ? model : sceadan_model_precompiled();;
+    if (!s->model){
+        delete s;
+        return 0;           // cannot load
+    }
+
     s->v          = new sceadan_vectors_t();
     s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     /* Load up the default types */
@@ -756,7 +863,7 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
         s->types[ sceadan_map_precompiled[type_counter] ] = type_counter;
         type_counter++;
     }
-    if (class_file){
+    if (class_file && class_file[0]){
         std::ifstream i(class_file);
         if (i.is_open()) {
             std::string str;
@@ -774,7 +881,7 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
     }
     s->mask = (char *)calloc(MAX_NR_ATTR, sizeof(char));
     s->mask_file = feature_mask_file;
-    if(feature_mask_file){
+    if(feature_mask_file && feature_mask_file[0]){
         if(sceadan_load_feature_mask(s, feature_mask_file) < 0){
             goto fail;
         }
@@ -793,7 +900,7 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
          *      What if model->bias != -1?
          */
         
-        //sceadan_build_feature_mask(s);
+        sceadan_initialize_feature_mask(s);
     }
     return s;
 
@@ -815,14 +922,6 @@ void sceadan_close(sceadan *s)
 void sceadan_clear(sceadan *s)
 {
     memset(s->v,0,sizeof(sceadan_vectors_t));
-}
-
-int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t bufsize)
-{
-    sceadan_vectors_t v;
-    memset(&v,0,sizeof(v));
-    vectors_update(s,buf, bufsize, &v);
-    return sceadan_predict(s,&v);
 }
 
 void sceadan_update(sceadan *s,const uint8_t *buf,size_t bufsize)
@@ -871,94 +970,9 @@ void sceadan_set_ngram_mode(sceadan *s,int ngram_mode)
 {
     s->ngram_mode = ngram_mode;
     // build feature mask if it is not loaded from a file
-    if(!s->mask_file){
-        sceadan_build_feature_mask(s);
+    if(s->mask_file==0 || s->mask_file[0]==0){
+        sceadan_initialize_feature_mask(s);
     }
-}
-
-void sceadan_build_feature_mask(sceadan *s)     // initialize feature_mask based on ngram_mode
-{
-    int count = 0;
-    memset(s->mask, '0', MAX_NR_ATTR);
-    /* unigrams */
-    memset(s->mask+START_UNIGRAMS, '1', NUNIGRAMS);
-    count += NUNIGRAMS;
-    /* bigrams */
-    if(s->ngram_mode & 1){
-        memset(s->mask+START_BIGRAMS_ALL, '1', NBIGRAMS);
-        count += NBIGRAMS;
-    }
-    if(s->ngram_mode & 2){
-        memset(s->mask+START_BIGRAMS_EVEN, '1', NBIGRAMS);
-        count += NBIGRAMS;
-    }
-    if(s->ngram_mode & 4){
-        memset(s->mask+START_BIGRAMS_ODD, '1', NBIGRAMS);
-        count += NBIGRAMS;
-    }
-    /* stats */
-    if (s->ngram_mode & 0x00008) { s->mask[STATS_IDX_BIGRAM_ENTROPY]            = '1'; count ++; }
-    if (s->ngram_mode & 0x00010) { s->mask[STATS_IDX_ITEM_ENTROPY]              = '1'; count ++; }
-    if (s->ngram_mode & 0x00020) { s->mask[STATS_IDX_HAMMING_WEIGHT]            = '1'; count ++; }
-    if (s->ngram_mode & 0x00040) { s->mask[STATS_IDX_MEAN_BYTE_VALUE]           = '1'; count ++; }
-    if (s->ngram_mode & 0x00080) { s->mask[STATS_IDX_STDDEV_BYTE_VAL]           = '1'; count ++; }
-    if (s->ngram_mode & 0x00100) { s->mask[STATS_IDX_ABS_DEV]                   = '1'; count ++; }
-    if (s->ngram_mode & 0x00200) { s->mask[STATS_IDX_SKEWNESS]                  = '1'; count ++; }
-    if (s->ngram_mode & 0x00400) { s->mask[STATS_IDX_KURTOSIS]                  = '1'; count ++; }
-    if (s->ngram_mode & 0x00800) { s->mask[STATS_IDX_CONTIGUITY]                = '1'; count ++; }
-    if (s->ngram_mode & 0x01000) { s->mask[STATS_IDX_MAX_BYTE_STREAK]           = '1'; count ++; }
-    if (s->ngram_mode & 0x02000) { s->mask[STATS_IDX_LO_ASCII_FREQ]             = '1'; count ++; }
-    if (s->ngram_mode & 0x04000) { s->mask[STATS_IDX_MED_ASCII_FREQ]            = '1'; count ++; }
-    if (s->ngram_mode & 0x08000) { s->mask[STATS_IDX_HI_ASCII_FREQ]             = '1'; count ++; }
-    if (s->ngram_mode & 0x10000) { s->mask[STATS_IDX_BYTE_VAL_CORRELATION]      = '1'; count ++; }
-    if (s->ngram_mode & 0x20000) { s->mask[STATS_IDX_BYTE_VAL_FREQ_CORRELATION] = '1'; count ++; }
-    if (s->ngram_mode & 0x40000) { s->mask[STATS_IDX_UNI_CHI_SQ]                = '1'; count ++; }
-
-}
-
-int sceadan_load_feature_mask(sceadan *s,const char *file_name)
-{
-    int count=0;
-    FILE *fp = fopen(file_name, "r");
-    if(fp == NULL){
-        printf("Error opening file %s\n", file_name);
-        return -1;
-    }
-    memset(s->mask, '0', MAX_NR_ATTR);
-    for(int i = 0; i < MAX_NR_ATTR; i++){
-        int ch = fgetc(fp);
-        assert(ch=='0' || ch=='1');
-        if(ch=='1'){
-            s->mask[i] = char(ch);
-            count ++;
-        }
-    }
-    if(fclose(fp) < 0){
-        printf("Error closing file %s\n", file_name);
-        return -1;
-    }
-    // make sure feature_mask match the model
-    assert(count==get_nr_feature( s->model ));
-    return 0;
-}
-
-int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
-{
-    FILE *fp = fopen(file_name, "w");
-    if(fp == NULL){
-        printf("Error opening file %s\n", file_name);
-        return -1;
-    }
-    if(fwrite(s->mask, sizeof(char), MAX_NR_ATTR, fp) != (size_t) MAX_NR_ATTR){
-        printf("Error writing file %s\n", file_name);
-        fclose(fp);
-        return -1;
-    }
-    if(fclose(fp) < 0){
-        printf("Error closing file %s\n", file_name);
-        return -1;
-    }
-    return 0;
 }
 
 /* Structure to track the weight of each feature */
