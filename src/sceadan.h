@@ -29,7 +29,7 @@ void sceadan_update(sceadan *,const uint8_t *buf,size_t bufsize);
 void sceadan_clear(sceadan *s);         // like a close and open
 int sceadan_classify(sceadan *);
 int sceadan_classify_file(const sceadan *,const char *fname);    // classify a file
-int  sceadan_classify_buf(const sceadan *s,const u_char *buf,size_t buflen);
+int  sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t buflen);
 const char *sceadan_name_for_type(const sceadan *,int type);
 int sceadan_type_for_name(const sceadan *,const char *name);
 void sceadan_close(sceadan *);

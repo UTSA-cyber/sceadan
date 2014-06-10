@@ -59,6 +59,7 @@
 #include <getopt.h>
 #include <limits.h>
 
+#include "utf8.h"
 #include "dig.h"
 
 #ifndef O_BINARY
@@ -76,7 +77,6 @@ int    opt_omit = 0;
 int    opt_blocks = 0;
 int    opt_help = 0;
 int    opt_preport  = 0;        /* report percentage sampled to pfd */
-int    opt_percentage = 100;
 int    opt_seed = 0;                    /* random number seed */
 int    opt_reduce = 0;          /* top n feature to select while doing feature reduction */
 int    opt_debug = 0;
@@ -101,19 +101,6 @@ static void do_output(sceadan *sc,const char *path,uint64_t offset,int file_type
  */
 static int process_file(const char path[])
 {
-    /* To get consistent random numbers, but random numbers that are different for every file,
-     * seed the random number generator and then exercise it a specific number of times that is
-     * determined by the file name.
-     */
-    if(opt_percentage!=100){
-        srandom(opt_seed);                  /*  */
-        for(int i=0;path[i];i++){
-            for(int j=0;j<path[i];j++){
-                random();
-            }
-        }
-    }
-
     int training = 0;
         
     if(opt_json){
@@ -160,13 +147,10 @@ static int process_file(const char path[])
         if((opt_blocks && rd==block_size) ||
            (!opt_blocks && rd==0)){
 
-            int process_block = (random() % 100) < opt_percentage;
-            if(process_block){
-                int t = sceadan_classify(s);
-                uint64_t start  = opt_blocks ? offset : 0;
-                if(!training) do_output(s,path,start,t); /* print results if not producing vectors for training*/
-                if(opt_preport) fprintf(stderr,"%" PRIu64 "-%" PRIu64 "\n",offset,offset+rd);
-            }
+            int t = sceadan_classify(s);
+            uint64_t start  = opt_blocks ? offset : 0;
+            if(!training) do_output(s,path,start,t); /* print results if not producing vectors for training*/
+            if(opt_preport) fprintf(stderr,"%" PRIu64 "-%" PRIu64 "\n",offset,offset+rd);
         }
         /* If we read nothing, break out of the loop */
         if(rd==0) break;
@@ -248,6 +232,19 @@ void usage()
     exit(0);
 }
 
+
+inline std::string safe_utf16to8(std::wstring st){ // needs to be cleaned up
+    std::string utf8_line;
+    try {
+        utf8::utf16to8(st.begin(),st.end(),back_inserter(utf8_line));
+    } catch(utf8::invalid_utf16){
+        /* Exception thrown: bad UTF16 encoding */
+        utf8_line = "";
+    }
+    return utf8_line;
+}
+
+
 int main (int argc, char *const argv[])
 {
     int ch;
@@ -263,7 +260,6 @@ int main (int argc, char *const argv[])
         case 'j': opt_json  = type_for_name(optarg); break;
         case 'm': opt_model = optarg; break;
         case 'P': opt_preport = 1; break;
-        case 'p': opt_percentage = atoi(optarg) ; break;
         case 'r': opt_seed = atoi(optarg);break; /* seed the random number generator */
         case 'R': opt_reduce = atoi(optarg); assert(opt_reduce>0); break;
         case 't': opt_train = type_for_name(optarg); break;
@@ -317,7 +313,7 @@ int main (int argc, char *const argv[])
         dig d(*argv);
         for(dig::const_iterator it = d.begin();it!=d.end();++it){
 #ifdef WIN32
-            std::string fname = utf16to8(*it);
+            std::string fname = safe_utf16to8(*it);
 #else
             std::string fname = *it;
 #endif
