@@ -115,7 +115,10 @@ static int process_file(const char path[])
 
     /* Test the incremental classifier */
     const int fd = (strcmp(path,"-")==0) ? STDIN_FILENO : open(path, O_RDONLY|O_BINARY);
-    if (fd<0){ perror("open");exit(0); }
+    if (fd<0){
+        fprintf(stderr,"cannot open %s\n",path);
+        return -1;
+    }
     uint8_t   *buf = (uint8_t *)malloc(block_size);
     if(buf==0){ perror("malloc"); exit(1); }
         
@@ -130,7 +133,8 @@ static int process_file(const char path[])
     while(true){
         const ssize_t rd = read(fd, buf, block_size);
         
-        if(opt_debug) fprintf(stderr,"Read %02x %02x %02x %02x %02x %02x %02x %02x\n",buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
+        if(opt_debug) fprintf(stderr,"Read %02x %02x %02x %02x %02x %02x %02x %02x\n",
+                              buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
         
         if(rd==-1){ perror("read"); exit(0);}
 
@@ -171,8 +175,6 @@ static int alldigits(const char *str)
     }
     return 1;
 }
-
-
 
 static int type_for_name(const char *name)
 {
@@ -294,8 +296,19 @@ int main (int argc, char *const argv[])
         usage();
     }
 
+    if(opt_debug) fprintf(stderr,"Calling sceadan_open\n");
+
     s = sceadan_open(opt_model, opt_class_file, feature_mask_file_in);
+
+    if(!s){
+        fprintf(stderr,"sceadan_open failed.\n");
+        fprintf(stderr,"sceadan_model_precompiled=%p\n",sceadan_model_precompiled());
+        exit(1);
+    }
+
+    if(opt_debug) fprintf(stderr,"back; setting ngram mode\n");
     sceadan_set_ngram_mode(s,opt_ngram_mode);
+    if(opt_debug) fprintf(stderr,"back\n");
 
     if (opt_reduce!=0){
         // feature reducetion generate new feature_mask file 
@@ -310,6 +323,7 @@ int main (int argc, char *const argv[])
     }
 
     while(argc>0){
+        if(opt_debug) fprintf(stderr,"dig(%s)\n",*argv);
         dig d(*argv);
         for(dig::const_iterator it = d.begin();it!=d.end();++it){
 #ifdef WIN32
@@ -317,6 +331,7 @@ int main (int argc, char *const argv[])
 #else
             std::string fname = *it;
 #endif
+            if(opt_debug) fprintf(stderr,"process %s\n",fname.c_str());
             process_file(fname.c_str());
         }
         argc--;

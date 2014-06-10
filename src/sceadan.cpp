@@ -849,7 +849,7 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
         s->model      = sceadan_model_precompiled();
     }
 
-    if (!s->model){
+    if (s->model==0){
         delete s;
         return 0;           // cannot load
     }

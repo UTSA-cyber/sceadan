@@ -9,12 +9,10 @@ AC_CHECK_LIB([linear],[load_model],
 
 # This file may be in several locations depending on how this file is included
 # But don't do it when cross-compiling
+# AC_CHECK_FILES won't check for files when cross-compiling so we do something else
 
-if test "$cross_compiling" == no; then
-  AC_CHECK_FILES([sceadan_model_precompiled.dat
-                  src/sceadan_model_precompiled.dat
-                  sceadan/src/sceadan_model_precompiled.dat
-                  src/sceadan/src/sceadan_model_precompiled.dat])
+if test -f src/sceadan_model_precompiled.dat ; then
+  AC_DEFINE(HAVE_SRC_SCEADAN_MODEL_PRECOMPILED_DAT,1,[we have a precompiled model])
 fi
 
 # Check which version of liblinear we have
