@@ -62,21 +62,10 @@
 #include <iostream>
 #include <fstream>
 
-/* We require liblinear.
- * If it is not available, Sceadan will not compile.
- * (previously it would compile but produce run-time errors)
+/* We require liblinear. But we now use a built-in version
  */
 
-#ifndef HAVE_LIBLINEAR
-#error Sceadan requires liblinear
-#endif
-
-#ifdef HAVE_LINEAR_H
-#include <linear.h>
-#endif
-#ifdef HAVE_LIBLINEAR_LINEAR_H
-#include <liblinear/linear.h>
-#endif
+#include "../liblinear/linear.h"
 
 /* The definitions of the sceadan structure.  A pointer to the
  * structure is available for the calling C/C++ program, but the

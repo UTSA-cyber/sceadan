@@ -1,11 +1,5 @@
 #include "config.h"
-#ifdef HAVE_LINEAR_H
-#  include <linear.h>
-#endif
-#ifdef HAVE_LIBLINEAR_LINEAR_H
-#  include <liblinear/linear.h>
-#endif
-
+#include "../liblinear/linear.h"
 #include "sceadan.h"
 
 #ifdef HAVE_SRC_SCEADAN_MODEL_PRECOMPILED_DAT
