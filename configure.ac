@@ -12,6 +12,8 @@ AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 AC_PREFIX_PROGRAM(sceadan)
 
+AC_CONFIG_SUBDIRS([liblinear])  dnl call its configure script recursively
+
 # Programs we will be using
 AC_PROG_CC
 AC_PROG_CXX
