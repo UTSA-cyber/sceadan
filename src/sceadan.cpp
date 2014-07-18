@@ -619,6 +619,10 @@ static int sceadan_predict(const sceadan *s,sceadan_vectors_t *v)
     if(s->dump_nodes){
         dump_nodes(s->dump_nodes,s,x);
     } else {
+        if(s->model==0){
+            fprintf(stderr,"Cannot run sceadan_predict with no built-in model\n");
+            exit(1);
+        }
         ret = predict(s->model,x);           /* run the liblinear predictor */
     }
     free(x);
@@ -834,13 +838,12 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
         s->model_name = model_file;
         s->model = load_model(model_file);
     } else {
-        s->model_name = "<precompiled>";
         s->model      = sceadan_model_precompiled();
-    }
-
-    if (s->model==0){
-        delete s;
-        return 0;           // cannot load
+        if(s->model){
+            s->model_name = "<precompiled>";
+        } else {
+            s->model_name = "<no model>";
+        }
     }
 
     s->v          = new sceadan_vectors_t();
@@ -982,6 +985,10 @@ struct fweight {
 
 int sceadan_reduce_feature(sceadan *s,const char *file_name,int n)
 {
+    if(!s->model){
+        fprintf(stderr,"sceadan_reduce_feature cannot run if no model is loaded.\n");
+        exit(1);
+    }
     int n_class = get_nr_class(s->model);
     int n_feature = get_nr_feature(s->model); 
     assert(n > 0 && n < n_feature);

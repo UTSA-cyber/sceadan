@@ -176,10 +176,12 @@ static int alldigits(const char *str)
     return 1;
 }
 
+/* Return the type for a name, or -1 if there is no type */
 static int type_for_name(const char *name)
 {
     if (alldigits(name)) return atoi(name);
     sceadan *sc = sceadan_open(0,opt_class_file,0);
+    if(sc==0) return -1;                // no precompiled model
     int ival = sceadan_type_for_name(sc,name);
     sceadan_close(sc);
     if(ival>0) return ival;
@@ -187,9 +189,11 @@ static int type_for_name(const char *name)
     exit(1);
 }
 
+/* Return the name for a type, or 0 if there is no name */
 static const char *name_for_type(int n)
 {
     sceadan *sc = sceadan_open(0,opt_class_file,0);
+    if(sc==0) return 0;                 // no precompiled names
     const char *ret = sceadan_name_for_type(sc,n);
     sceadan_close(sc);
     return ret;
