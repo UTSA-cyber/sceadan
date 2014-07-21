@@ -275,7 +275,7 @@ static inline uint64_t max( const uint64_t a, const uint64_t b ) { return a > b 
  *** Map file types to numbers ***
  *********************************/
 
-static const char *sceadan_map_precompiled[] =
+static const char *sceadan_map_default[] =
 {"UNCLASSIFIED", "TEXT", "CSV", "LOG", "HTML", "XML", "ASPX", "JSON", "JS", "JAVA", 
  "CSS", "B64", "B85", "B16", "URL", "PS", "RTF", "TBIRD", "PST", "PNG",
  "GIF", "TIF", "JB2", "GZ", "ZIP", "JAR", "RPM", "BZ2", "PDF", "DOCX", 
@@ -834,11 +834,12 @@ int sceadan_dump_feature_mask(sceadan *s,const char *file_name)
 sceadan *sceadan_open(const char *model_file,const char *class_file,const char *feature_mask_file) // use 0 for default model
 {
     sceadan *s    = new sceadan();
+
     if (model_file && model_file[0]) {
         s->model_name = model_file;
         s->model = load_model(model_file);
     } else {
-        s->model      = sceadan_model_precompiled();
+        s->model = sceadan_model_precompiled();
         if(s->model){
             s->model_name = "<precompiled>";
         } else {
@@ -850,8 +851,8 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
     s->ngram_mode = SCEADAN_NGRAM_MODE_DEFAULT;
     /* Load up the default types */
     int type_counter = 0;
-    while(sceadan_map_precompiled[type_counter]){
-        s->types[ sceadan_map_precompiled[type_counter] ] = type_counter;
+    while(sceadan_map_default[type_counter]){
+        s->types[ sceadan_map_default[type_counter] ] = type_counter;
         type_counter++;
     }
     if (class_file && class_file[0]){
