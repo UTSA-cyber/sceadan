@@ -458,7 +458,7 @@ def generate_confusion():
 
         # Generate each row of the output
         
-        data = [FTYPE, files_per_type[FTYPE], blocks_per_type[FTYPE]] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
+        data = [FTYPE, files_per_type.get(FTYPE,0), blocks_per_type.get(FTYPE,0)] + ["{:3.0f}".format(tally.get(f,0)*100.0/count) for f in classtypes]
         t.append_data(data)
         rowcounter += 1
         if rowcounter % 5 ==0:

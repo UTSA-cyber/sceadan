@@ -838,6 +838,10 @@ sceadan *sceadan_open(const char *model_file,const char *class_file,const char *
     if (model_file && model_file[0]) {
         s->model_name = model_file;
         s->model = load_model(model_file);
+        if(s->model==0){
+            fprintf(stderr,"sceadan: %s will not load as a model file\n");
+            exit(0);
+        }
     } else {
         s->model = sceadan_model_precompiled();
         if(s->model){
