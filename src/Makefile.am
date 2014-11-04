@@ -5,6 +5,7 @@ LIBLINEAR = ../liblinear/tron.cpp ../liblinear/linear.cpp ../liblinear/blas/blas
 	../liblinear/blas/dnrm2.c ../liblinear/blas/dscal.c
 
 
+AUTOMAKE_OPTIONS = subdir-objects
 DISTCLEANFILES = sceadan_model_precompiled.dat
 
 bin_PROGRAMS = sceadan_app mcompile
