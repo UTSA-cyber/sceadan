@@ -950,12 +950,16 @@ int sceadan_classify_file(const sceadan *s,const char *file_name)
     return sceadan_predict(s,&v);
 }
 
-int  sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t buflen)
+int sceadan_classify_buf(const sceadan *s,const uint8_t *buf,size_t buflen)
 {
-    sceadan_vectors_t v;
-    memset(&v,0,sizeof(v));
-    vectors_update(s,buf,buflen,&v);
-    return sceadan_predict(s,&v);
+    sceadan_vectors_t *v = (sceadan_vectors_t*) malloc(sizeof(sceadan_vectors_t));
+    memset(v,0,sizeof(v));
+    vectors_update(s,buf,buflen,v);
+    int prediction = sceadan_predict(s, v);
+    if (v){
+        free(v);
+    }
+    return prediction;
 }
 
 void sceadan_dump_json_on_classify(sceadan *s,int file_type,FILE *out)
