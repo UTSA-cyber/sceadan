@@ -81,20 +81,6 @@ Linux build
     ./configure
     make
     make install
-		
-###### Building bulk_extractor with sceadan as a plugin
-    
-    git clone --recursive https://github.com/simsong/bulk_extractor.git
-    cd bulk_extractor
-    libtoolize
-    autoheader -f
-    aclocal -I m4
-    autoconf -f
-    libtoolize
-    automake --add-missing --copy
-    ./configure --with-sceadan=<sceadan directory>
-    make
-	sudo make install
 
 Windows 64-bit build
 -----------------
@@ -124,19 +110,6 @@ Windows 64-bit build
     mingw64-configure
     make
 
-###### bulk_extractor
-    
-    git clone --recursive https://github.com/simsong/bulk_extractor.git
-    cd bulk_extractor
-    libtoolize
-    autoheader -f
-    aclocal -I m4
-    autoconf -f
-    libtoolize
-    automake --add-missing --copy
-    mingw64-configure --with-sceadan=<sceadan directory> --disable-afflib --disable-libewf
-    make
-
 Tips for recompiling
 ---------------------
 
@@ -149,13 +122,6 @@ Re-build sceadan the smarter way if making dev changes to it or bulk_extractor:
     cd win64; mingw64-configure --with-sceadan=../../sceadan --disable-afflib --disable-libewf
 
 To test an updated sceadan in bulk extractor, go to the sceadan source dir (sceadan/src/\*.cpp), make a change, and type `make`. It should only rebuild the modified files. However, to relink the new sceadan to bulk extractor, you *need* to delete **bulk_extractor/win64/src/scan_sceadan.o**. Then type `make`. You can also update bulk extractor source files and type `make` in this directory to rebuild bulk extractor with the new changes.
-
-Running bulk extractor
-----------------------
-
-The basic syntax for running bulk extractor with sceadan on both Windows and Linux is:
-
-`bulk_extractor -E sceadan -S sceadan_model_file=<model file location> -o <log file location> <disk image location>`
 
 Usage
 -----
