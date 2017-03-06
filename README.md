@@ -110,19 +110,6 @@ Windows 64-bit build
     mingw64-configure
     make
 
-Tips for recompiling
----------------------
-
-If you use the make file generated from CONFIGURE\_F20.bash, it will blow away everything with `make distclean` every time you build bulk extractor!
-
-Re-build sceadan the smarter way if making dev changes to it or bulk_extractor:
-
-    cd ../sceadan; make clean; mingw64-configure; make
-    cd /home/deflogix/bulk_extractor; make distclean (to clean stuff up)
-    cd win64; mingw64-configure --with-sceadan=../../sceadan --disable-afflib --disable-libewf
-
-To test an updated sceadan in bulk extractor, go to the sceadan source dir (sceadan/src/\*.cpp), make a change, and type `make`. It should only rebuild the modified files. However, to relink the new sceadan to bulk extractor, you *need* to delete **bulk_extractor/win64/src/scan_sceadan.o**. Then type `make`. You can also update bulk extractor source files and type `make` in this directory to rebuild bulk extractor with the new changes.
-
 Usage
 -----
 
